@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block header_title %}Peta Sebaran Irigasi{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-groupedlayercontrol/0.6.1/leaflet.groupedlayercontrol.min.css" />
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div id="map" style="height: 85vh; width: 100%; border-radius: 10px;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-groupedlayercontrol/0.6.1/leaflet.groupedlayercontrol.min.js"></script>
+    
+    <script>
+        // Pastikan dokumen sudah siap sepenuhnya
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // 1. Inisialisasi Peta
+            var map = L.map('map').setView([-6.75, 108.55], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // 2. Inisialisasi Grup
+            var grupSaluran = L.layerGroup().addTo(map); // Langsung masukkan ke map
+            var grupBangunan = L.layerGroup().addTo(map);
+            var grupLuasan = L.layerGroup();
+            var grupPendukung = L.layerGroup();
+
+            var groupedOverlays = {
+                "Sistem Irigasi": {
+                    "🌊 Saluran": grupSaluran,
+                    "🏗️ Bangunan": grupBangunan,
+                    "🌾 Luasan Areal": grupLuasan
+                },
+                "Data Umum": {
+                    "📍 Jalan & Wilayah": grupPendukung
+                }
+            };
+
+            var options = { groupCheckboxes: true, collapsed: false };
+            L.control.groupedLayers(null, groupedOverlays, options).addTo(map);
+
+            {% for layer in layers_pendukung %}
+                fetch("{{ layer.file_geojson.url }}")
+                    .then(res => res.json())
+                    .then(data => {
+                        L.geoJSON(data, {
+                            style: { color: "{{ layer.warna_garis }}", weight: 2, fillOpacity: 0 }
+                        }).addTo(grupPendukung);
+                    });
+            {% endfor %}
+
+            // 4. Load Marker Titik
+            {% for di in titik_irigasi %}
+                // A. Munculkan Marker (Titik) jika ada lat/long
+                {% if di.latitude and di.longitude %}
+                    L.marker([{{ di.latitude }}, {{ di.longitude }}])
+                        .addTo(map)
+                        .bindPopup("<b>{{ di.nama_di }}</b><br>Kewenangan: {{ di.kewenangan }}");
+                {% endif %}
+
+                // B. Munculkan Poligon/Garis jika ada file GeoJSON-nya
+                {% if di.file_geojson %}
+                    fetch("{{ di.file_geojson.url }}")
+                        .then(res => res.json())
+                        .then(data => {
+                            var layerDI = L.geoJSON(data, {
+                                style: {
+                                    color: "blue", // Atau sesuaikan dengan kewenangan
+                                    weight: 3,
+                                    fillOpacity: 0.3
+                                },
+                                onEachFeature: function (feature, layer) {
+                                    layer.bindPopup("<b>{{ di.nama_di }}</b><br>Luas: {{ di.luas_fungsional }} Ha");
+                                    
+                                    // Efek Hover
+                                    layer.on('mouseover', function () { this.setStyle({ color: 'yellow', weight: 5 }); });
+                                    layer.on('mouseout', function () { layerDI.resetStyle(this); });
+                                }
+                            });
+
+                            // Masukkan ke grup berdasarkan kategori_map yang diisi di admin
+                            if ("{{ di.kategori_map }}" == "irigasi") { layerDI.addTo(grupSaluran); }
+                            else if ("{{ di.kategori_map }}" == "lahan") { layerDI.addTo(grupLuasan); }
+                        });
+                {% endif %}
+            {% endfor %}
+
+            // Supaya peta tidak error saat container di-resize
+            setTimeout(function(){ map.invalidateSize(); }, 500);
+        });
+    </script>
+{% endblock %}

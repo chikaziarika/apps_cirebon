@@ -1,0 +1,470 @@
+:root {
+    --bg-light: #f8f9fa;
+    --sidebar-bg: #ffffff;
+    --primary-blue: #4e73df;
+}
+
+body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Tetap sembunyikan scrollbar asli */
+    }
+
+    .gsap-container {
+        width: 100%;
+        height: 100vh;
+        position: relative;
+    }
+
+    .gsap-section {
+        width: 95%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 0px 40px 40px 40px; 
+        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .gsap-section .container-fluid {
+        margin-top: 20px;
+    }
+    
+    /* Tambahan agar tabel tidak merusak scroll */
+    .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+/* Header dibuat fixed di atas */
+.sticky-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    /* Jika sidebar Anda lebarnya 250px, sesuaikan left-nya */
+    left: 250px; 
+    z-index: 1000;
+    height: 70px; /* Tentukan tinggi header */
+}
+
+
+.scrollable-content {
+    margin-top: 70px; 
+    height: calc(100vh - 70px); 
+    /* overflow-y: auto; */
+    padding: 20px;
+    background-color: #f8f9fa; 
+    display: flex;
+    flex-direction: column;
+}
+
+.login-inner-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 0;
+}
+
+.badge {
+    transition: transform 0.3s ease; 
+    display: inline-block; 
+}
+
+
+.badge-shift {
+    transform: translateX(-15vh);
+}
+
+
+.content-expanded .sticky-header, 
+.content-expanded .scrollable-content {
+    left: 0;
+}
+
+.sticky-header {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Header tetap di atas */
+.navbar-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 250px; 
+    z-index: 1030;
+    height: 60px; 
+    background: #fff;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid #eee;
+}
+
+
+.main-content-scrollable {
+    margin-top: 60px; 
+    margin-left: 250px; 
+    height: calc(100vh - 60px); 
+    overflow-y: auto; 
+    padding: 25px;
+    background-color: #f8f9fa;
+}
+
+.wrapper {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+}
+
+#sidebar {
+    min-width: 29vh;
+    max-width: 29vh;
+    background: var(--sidebar-bg);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #eee;
+}
+
+#main-content {
+    width: 100%;
+    height: 100vh;
+    overflow-y: auto; 
+    position: relative;
+    scroll-behavior: auto !important;; 
+    padding: 0 !important;
+}
+
+#main-content {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+}
+#main-content::-webkit-scrollbar {
+    display: none;             /* Chrome, Safari and Opera */
+}
+
+/* 2. Styling Navigasi Bullet */
+.gsap-nav {
+    position: fixed;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.nav-dot {
+    position: relative;
+    width: 12px;
+    height: 12px;
+    background: #cbd5e0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Efek saat aktif (sedang di section tersebut) */
+.nav-dot.active {
+    background: var(--primary-blue);
+    transform: scale(1.5);
+}
+
+/* Label keterangan di samping bullet */
+.nav-label {
+    position: absolute;
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--primary-blue);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.nav-dot:hover .nav-label {
+    opacity: 1;
+    visibility: visible;
+    right: 30px;
+}
+
+/* Tambahkan sedikit ikon di dalam label (opsional) */
+.nav-label i {
+    margin-right: 5px;
+}
+
+.nav-link {
+    color: #6c757d;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+    background: #f0f4ff;
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+.card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: #ddd;
+    border-radius: 50%;
+}
+
+
+
+#sidebar {
+    min-width: 29vh;
+    max-width: 29vh;
+    background: var(--sidebar-bg);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #eee;
+    transition: all 0.3s ease-in-out; 
+    z-index: 1000;
+}
+
+/* Sidebar Active (Kondisi Mengecil/Collapsed) */
+#sidebar.active {
+    min-width: 80px;
+    max-width: 80px;
+    text-align: center;
+}
+
+/* Sembunyikan teks menu saat sidebar mengecil */
+#sidebar.active .nav-link span, 
+#sidebar.active .sidebar-header h5, 
+#sidebar.active .sidebar-header small,
+#sidebar.active .sidebar-footer div:last-child {
+    display: none;
+}
+
+/* Posisikan ikon di tengah saat mengecil */
+#sidebar.active .nav-link i {
+    margin-right: 0 !important;
+    font-size: 1.2rem;
+}
+
+#sidebar.active .sidebar-header {
+    padding: 1rem !important;
+}
+
+#main-content {
+    width: 100%;
+    transition: all 0.3s ease-in-out; 
+}
+
+.tooltip-inner {
+    background-color: var(--primary-blue);
+    color: #fff;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: var(--primary-blue);
+}
+
+.content-full {
+    left: 88px !important;
+    width: 100% !important;
+}
+
+/* Pastikan teks pada card statistik tidak terlalu besar di layar kecil */
+.card h2 {
+    font-size: calc(1.3rem + 0.6vw);
+}
+
+/* Berikan transisi halus saat ganti filter (nanti bisa dipakai) */
+.form-select {
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+
+/* Pastikan container tabel tidak merusak layout */
+.dataTables_wrapper {
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Beri jarak antar baris agar tidak terlalu rapat */
+#irigasiTable tbody tr {
+    height: 50px; 
+}
+
+/* Memperkecil padding sel agar muat lebih banyak informasi */
+#irigasiTable td, #irigasiTable th {
+    padding: 8px 12px !important;
+    white-space: nowrap; /* Mencegah teks turun ke bawah/wrap */
+}
+
+/* Beri warna khusus untuk baris saat di-hover */
+#irigasiTable tbody tr:hover {
+    background-color: #f1f4f9 !important;
+}
+
+
+/* Custom Modal agar pas di area konten saja */
+.custom-modal-position {
+    max-width: 95% !important; /* Lebar hampir memenuhi konten */
+    margin: 1.5rem auto !important;
+}
+
+#detailModal .modal-content {
+    height: 80vh; /* Tinggi modal 80% dari tinggi layar */
+    border-radius: 15px;
+}
+
+/* Pastikan backdrop modal tidak menutupi sidebar jika diinginkan */
+/* Jika ingin sidebar tetap bisa diklik saat modal buka, gunakan ini: */
+#detailModal {
+    z-index: 1040;
+}
+
+.modal {
+    z-index: 1060 !important; /* Pastikan di atas segalanya */
+}
+
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+.detail-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-45%, -46%);
+    width: 85vw;
+    /* max-width: 900px; */
+    height: 75vh;
+    background: white;
+    z-index: 2000;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.gsap-container.blurred {
+    filter: blur(8px); /* Atur tingkat keburaman di sini */
+    transition: filter 0.3s ease;
+    pointer-events: none; /* User tidak bisa klik elemen di belakang */
+}
+
+.modal-backdrop-custom {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4); /* Hitam transparan */
+    backdrop-filter: blur(4px); /* Blur tambahan pada backdrop */
+    z-index: 1999;
+    display: none;
+}
+
+.detail-overlay {
+    z-index: 2000;
+}
+
+.overlay-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px; 
+    background-color: #f8f9fa; /
+}
+
+
+.overlay-body .container-fluid, 
+.overlay-body .row {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.hide-bullets .gsap-nav {
+    display: none !important;
+}
+
+.overlay-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 15px;
+}
+
+.overlay-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pastikan area chart punya ruang */
+
+#modal-info canvas {
+    max-height: 180px !important;
+}
+
+/* Memastikan header pada kolom yang di-freeze tetap berwarna gelap/terlihat */
+.DTFC_LeftHeadWrapper table thead tr th,
+.DTFC_RightHeadWrapper table thead tr th {
+    background-color: #212529 !important; /* Warna dark Bootstrap */
+    color: white !important;
+}
+
+.dtfc-fixed-left .thead-dark th, 
+.DTFC_LeftHeadWrapper table thead th {
+    background-color: #343a40 !important;
+    color: white !important;
+    border: 1px solid #454d55;
+}
+
+/* Memastikan body pada kolom yang di-freeze tidak transparan */
+.DTFC_LeftBodyWrapper table tbody tr td {
+    background-color: #ffffff !important;
+    border-right: 1px solid #dee2e6;
+}
+
+.dtfc-fixed-left {
+    border-right: 2px solid #dee2e6 !important;
+}
+
+/* Opsional: Efek hover agar baris tetap sinkron warnanya saat di-hover */
+.dataTable tr.selected td, 
+.dataTable tr:hover td {
+    background-color: #f8f9fa !important;
+}
+
+
+/* Warna sel untuk kondisi (Baik/Rusak) */
+.bg-baik { background-color: #d1e7dd !important; }
+.bg-rusak-ringan { background-color: #fff3cd !important; }
+.bg-rusak-berat { background-color: #f8d7da !important; }

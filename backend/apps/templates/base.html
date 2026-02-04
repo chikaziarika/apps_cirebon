@@ -1,0 +1,162 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SIARUS CARUBAN{% endblock %}</title>
+    
+    {% include 'includes/assets_css.html' %}
+   
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header p-4">
+                <h5 class="fw-bold mb-0">SI-IRIGASI</h5>
+                <small class="text-muted">Kabupaten Cirebon</small>
+            </div>
+
+            <ul class="list-unstyled components p-3">
+                <li class="mb-2">
+                    <a href="{% url 'dashboard' %}" class="nav-link p-3" 
+                    data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
+                        <i class="fa-solid fa-chart-line me-3"></i> 
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="mb-2">
+                    <a href="#" class="nav-link p-3" 
+                    data-bs-toggle="tooltip" data-bs-placement="right" title="Daerah Irigasi">
+                        <i class="fa-solid fa-database me-3"></i> 
+                        <span>Daerah Irigasi</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer p-4 mt-auto border-top">
+                <div class="d-flex align-items-center">
+                    <div class="user-avatar me-3">
+                    {% if user.is_authenticated %}
+                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" 
+                            class="rounded-circle" width="35" height="35">
+
+                    {% endif %}
+                    </div>
+                    <div class="user-profile">
+                        {% if user.is_authenticated %}
+                            <form action="{% url 'logout' %}" method="post" id="logout-form" style="display: inline;">
+                                {% csrf_token %}
+                                <span>Halo, {{ user.username|truncatechars:10 }}!</span>
+                                <button type="submit" class="btn btn-link text-danger p-0 m-0 align-baseline" style="text-decoration: none;">
+                                    <i class="fa-solid fa-right-from-bracket me-2"></i>Logout
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main id="main-content">
+        
+            <header class="sticky-header p-4 d-flex justify-content-between align-items-center bg-white border-bottom">
+                <div class="d-flex align-items-center">
+                    <button id="sidebarCollapse" class="btn btn-light me-3">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <h4 class="fw-bold mb-0">{% block header_title %}Dashboard{% endblock %}</h4>
+                </div>
+                
+                {% if not user.is_authenticated %}
+                    <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
+                {% else %}
+                    <span class="badge bg-success">Sesi Aktif: {{ user.username }}</span>
+                {% endif %}
+            </header>
+
+            <main class="scrollable-content">
+    
+                <div class="container-fluid">
+                    {% block content %}
+                        {% endblock %}
+                </div>
+
+            </main>
+        </main>
+    </div>
+
+
+
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable custom-modal-position"> 
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h5 class="modal-title fw-bold" id="modalNamaDI">Nama Daerah Irigasi</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="overlay-body p-4">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="card h-100 border-0 bg-light p-3">
+                                    <h6 class="fw-bold border-bottom pb-2 mb-3">Data Teknis</h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr><th width="35%">Kode</th><td id="modalKode"></td></tr>
+                                        <tr><th>Sumber</th><td id="modalSumber"></td></tr>
+                                        <tr><th>Bendung</th><td id="modalBendung"></td></tr>
+                                        <tr><th>UPT</th><td id="modalUPT"></td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 border-0 shadow-sm p-2 text-center">
+                                    <small class="fw-bold d-block mb-2">Persentase Luas</small>
+                                    <div style="height: 150px;"><canvas id="modalPieChart"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 border-0 shadow-sm p-2 text-center">
+                                    <small class="fw-bold d-block mb-2">Perbandingan Luas (Ha)</small>
+                                    <div style="height: 150px;"><canvas id="modalBarChart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm overflow-hidden">
+                                    <div class="card-header bg-white py-2 fw-bold">Lokasi D.I.</div>
+                                    <div id="mapDetail" style="height: 350px; width: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-dark text-white py-2">
+                                        <h6 class="mb-0 fw-bold">Daftar Bangunan Air & Hasil Survei Mobile</h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table id="tableBangunan" class="table table-hover mb-0 w-100">
+                                                </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    {% include 'includes/assets_js.html' %}
+
+    
+
+</body>
+</html>

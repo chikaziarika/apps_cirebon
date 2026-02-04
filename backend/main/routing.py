@@ -1,6 +1,7 @@
 from django.urls import re_path
-from apps.consumers import LiveTrackingConsumer
+from . import consumers 
 
 websocket_urlpatterns = [
-    re_path(r'ws/live/$', LiveTrackingConsumer.as_view()),
+    # Ganti 'ws/main/' sesuai kebutuhan frontend
+    re_path(r'ws/main/$', consumers.IrigasiConsumer.as_async()),
 ]

@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h2 class="mb-4">Upload Rekap Data Irigasi</h2>
+    <p>Pastikan file yang diupload adalah sheet <strong>"Rekap DI"</strong> dengan format .xlsx atau .csv</p>
+    <hr>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="margin-bottom: 20px;">
+            {{ form.as_p }}
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="Mulai Import Data" class="default" style="background: #28a745; height: 40px; padding: 0 20px;">
+            <a href=".." class="button" style="background: #6c757d; margin-left: 10px; display: inline-block; line-height: 35px; color: white; padding: 0 15px; border-radius: 4px; text-decoration: none;">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
