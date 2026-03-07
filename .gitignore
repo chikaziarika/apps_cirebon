@@ -1,0 +1,17 @@
+# Mengabaikan folder media (tempat file upload/rar berada)
+backend/media/
+media/
+
+# Mengabaikan file database bawaan
+*.sqlite3
+
+# Mengabaikan folder virtual environment
+venv/
+env/
+
+# Mengabaikan file rahasia
+.env
+
+# Mengabaikan cache python
+__pycache__/
+*.pyc

@@ -1,0 +1,126 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rekapitulasi Kinerja dan Aset - {{ di.nama_di }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.4; margin: 20px; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h3 { margin: 5px 0; text-transform: uppercase; }
+        
+        .info-table { width: 100%; margin-bottom: 20px; border: none; }
+        .info-table td { padding: 2px; border: none; font-weight: bold; }
+
+        table.main-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table.main-table th, table.main-table td { 
+            border: 1px solid black; 
+            padding: 6px; 
+            font-size: 11px; 
+        }
+        table.main-table th { background-color: #f2f2f2; text-align: center; }
+
+        .footer-note { margin-top: 30px; font-size: 11px; }
+        .condition-box { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .condition-box td { border: 1px solid #ccc; padding: 5px; font-size: 10px; }
+        
+        @media print {
+            .no-print { display: none; }
+            body { margin: 10mm; }
+        }
+        .report-table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+    .report-table th, .report-table td { border: 1px solid #000; padding: 3px; vertical-align: middle; }
+    .report-table thead th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .bg-gray { background-color: #f9f9f9; }
+    .fw-bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div style="text-align: center; margin-bottom: 20px;">
+    <h3 style="margin:0;">REKAPITULASI KINERJA DAN ASET DAERAH IRIGASI</h3>
+    <p>Daerah Irigasi: <strong>{{ di.nama_di }}</strong> | Tahun IKSI: <strong>2024</strong></p>
+</div>
+
+<table class="report-table">
+    <thead>
+        <tr>
+            <th rowspan="3" width="3%">No</th>
+            <th rowspan="3" width="15%">Nama</th>
+            <th rowspan="3" width="8%">Nomenklatur</th>
+            <th rowspan="3" width="10%">Jenis</th>
+            <th rowspan="3" width="10%">Panjang (m)</th>
+            <th rowspan="3" width="10%">Kinerja Individu Jaringan</th>
+            <th colspan="4" width="44%">Kondisi</th>
+        </tr>
+        <tr>
+            <th rowspan="2" width="5%">Ket</th>
+            <th rowspan="2" width="12%">Saluran (meter)</th>
+            <th colspan="2" width="27%">Bangunan Pengambilan</th>
+        </tr>
+        <tr>
+            <th width="13%">Pengambilan Bebas</th>
+            <th width="14%">Pintu Air</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in saluran %}
+        <tr>
+            <td rowspan="5" class="text-center">{{ forloop.counter }}</td>
+            <td rowspan="5" class="fw-bold">{{ s.nama_saluran }}</td>
+            <td rowspan="5" class="text-center">{{ s.pai_saluran.nomenklatur|default:"-" }}</td>
+            <td rowspan="5" class="text-center">{{ s.jaringan_tingkat }}</td>
+            <td rowspan="5" class="text-right">{{ s.panjang_saluran|floatformat:2 }}</td>
+            <td rowspan="5" class="text-center fw-bold">{{ s.kinerja_individu }}</td>
+            
+            <td class="text-center bg-gray">B</td>
+            <td class="text-right">{% if s.kinerja_individu == 'B' %}{{ s.panjang_saluran|floatformat:2 }}{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'B' and s.pai_saluran.pintu_jumlah == 0 %}1{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'B' %}{{ s.pai_saluran.pintu_jumlah|default:"" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="text-center bg-gray">RR</td>
+            <td class="text-right">{% if s.kinerja_individu == 'RR' %}{{ s.panjang_saluran|floatformat:2 }}{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RR' and s.pai_saluran.pintu_jumlah == 0 %}1{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RR' %}{{ s.pai_saluran.pintu_jumlah|default:"" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="text-center bg-gray">RS</td>
+            <td class="text-right">{% if s.kinerja_individu == 'RS' %}{{ s.panjang_saluran|floatformat:2 }}{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RS' and s.pai_saluran.pintu_jumlah == 0 %}1{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RS' %}{{ s.pai_saluran.pintu_jumlah|default:"" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="text-center bg-gray">RB</td>
+            <td class="text-right">{% if s.kinerja_individu == 'RB' %}{{ s.panjang_saluran|floatformat:2 }}{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RB' and s.pai_saluran.pintu_jumlah == 0 %}1{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RB' %}{{ s.pai_saluran.pintu_jumlah|default:"" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="text-center bg-gray">RT</td>
+            <td class="text-right">{% if s.kinerja_individu == 'RT' %}{{ s.panjang_saluran|floatformat:2 }}{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RT' and s.pai_saluran.pintu_jumlah == 0 %}1{% endif %}</td>
+            <td class="text-center">{% if s.kinerja_individu == 'RT' %}{{ s.pai_saluran.pintu_jumlah|default:"" }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div style="margin-top: 20px; font-size: 9px;">
+    <strong>Keterangan Kondisi:</strong>
+    <p style="margin:0;">1. Kondisi [B] = Baik; Kinerja [BS] = Baik Sekali; IKSI > 90% dan TKR < 10%</p>
+    <p style="margin:0;">2. Kondisi [RR] = Rusak Ringan; Kinerja [B] = Baik; IKSI 80-90% dan TKR = 10-20%</p>
+    <p style="margin:0;">3. Kondisi [RS] = Rusak Sedang; Kinerja [S] = Sedang; IKSI 60-80% dan TKR 20-40%</p>
+    <p style="margin:0;">4. Kondisi [RB] = Rusak Berat; Kinerja [J] = Jelek; IKSI 20-60% dan TKR 40-80%</p>
+    <p style="margin:0;">5. Kondisi [RT] = Rusak Total; Kinerja [J] = Jelek; IKSI < 20% dan TKR > 80%</p>
+</div>
+
+<div class="no-print" style="margin-top: 20px;">
+    <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;">
+        <i class="fa fa-print"></i> Cetak Laporan
+    </button>
+</div>
+
+</body>
+</html>

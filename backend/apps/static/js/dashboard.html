@@ -1,0 +1,497 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="gsap-container"> 
+    {% if user.is_authenticated %}
+        {% comment %} <div class="gsap-nav">
+            <div class="nav-dot active" data-index="0">
+                <span class="nav-label"><i class="fa-solid fa-chart-line"></i> Ringkasan</span>
+            </div>
+            <div class="nav-dot" data-index="1">
+                <span class="nav-label"><i class="fa-solid fa-pie-chart"></i> Analisis</span>
+            </div>
+            <div class="nav-dot" data-index="2">
+                <span class="nav-label"><i class="fa-solid fa-list-check"></i> Detail DI</span>
+            </div>
+        </div> {% endcomment %}
+
+
+
+        <section id="section1" class="gsap-section">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="fw-bold text-primary mb-0">I. Ringkasan Data Irigasi</h4>
+                    <div class="d-flex align-items-center">
+                        <label class="me-2 fw-bold small">Tahun Kegiatan:</label>
+                        <select class="form-select form-select-sm" style="width: 120px;">
+                            <option value="2024" selected>2024</option>
+                            <option value="2023">2023</option>
+                            <option value="2022">2022</option>
+                        </select>
+                    </div>
+                </div>
+
+                <ul class="nav nav-tabs mb-3" id="irigasiTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart-pane" type="button" role="tab">
+                            <i class="bi bi-graph-up me-1"></i> Komposisi Luasan
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats-pane" type="button" role="tab">
+                            <i class="bi bi-card-checklist me-1"></i> Peta Irigasi
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link  fw-bold" id="table-tab" data-bs-toggle="tab" data-bs-target="#table-pane" type="button" role="tab">
+                            <i class="bi bi-table me-1"></i> Data Daerah Irigasi
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="irigasiTabContent">
+
+                    <div class="tab-pane fade " id="stats-pane" role="tabpanel" tabindex="0">
+                        
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card shadow-sm border-0">
+                                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 fw-bold text-primary"><i class="fa-solid fa-map-location-dot me-2"></i>Peta Sebaran Daerah Irigasi</h6>
+                                        <span class="badge bg-light text-dark border">Data Eksis: {{ data_irigasi.count }} Area</span>
+                                    </div>
+                                        <div class="card-body p-0 position-relative">
+                                            <div id="map-keseluruhan" style="height: 75vh; width: 100%;"></div>
+                                           
+                                            <div id="peta-info-box" class="card shadow border-primary position-absolute" style="display: none; z-index: 1000; bottom: 20px; right: 20px; width: 300px;">
+                                                <div class="card-header bg-primary text-white py-1 d-flex justify-content-between align-items-center">
+                                                    <small class="fw-bold"><i class="fa-solid fa-circle-info me-1"></i> Atribut Jaringan</small>
+                                                    <button id="close-info-btn" type="button" class="btn-close btn-close-white" style="font-size: 0.6rem;"></button>
+                                                </div>
+
+                                                <div class="d-flex bg-black bg-opacity-10 text-center" style="font-size: 0.75rem; cursor: pointer;">
+                                                    <div class="info-tab flex-fill py-2 border-end active" onclick="switchInfoTab('umum')">Umum</div>
+                                                    <div class="info-tab flex-fill py-2 border-end" onclick="switchInfoTab('saluran')">Saluran</div>
+                                                    <div class="info-tab flex-fill py-2" onclick="switchInfoTab('bangunan')">Bangunan</div>
+                                                </div>
+
+                                                <div class="card-body p-0 position-relative" style="height: 200px; overflow: hidden;">
+                                                    
+                                                    <div id="content-umum" class="info-content p-3 position-absolute w-100">
+                                                        <div class="mb-2">
+                                                            <label class="text-muted d-block small mb-0">Daerah Irigasi :</label>
+                                                            <span id="info-nama-di" class="fw-bold text-dark">-</span>
+                                                        </div>
+                                                        <div class="row g-0 border-top pt-2 mt-2">
+                                                            <div class="col-6 border-end text-center">
+                                                                <small class="text-muted d-block" style="font-size: 10px;">Luas Fungsional</small>
+                                                                <b id="info-luas-f">0</b> <small>Ha</small>
+                                                            </div>
+                                                            <div class="col-6 ps-2 text-center">
+                                                                <small class="text-muted d-block" style="font-size: 10px;">Total Saluran</small>
+                                                                <b id="info-panjang">0</b> <small>m</small>
+                                                            </div>
+                                                        </div>
+                                                    </div> <div id="content-saluran" class="info-content p-2 position-absolute w-100" style="display:none;">
+                                                        <small class="fw-bold text-primary border-bottom d-block mb-1">Daftar Ruas Saluran</small>
+                                                        <div id="list-saluran-info" class="list-group list-group-flush overflow-auto" style="max-height: 160px; font-size: 0.75rem;">
+                                                        </div>
+                                                    </div> <div id="content-bangunan" class="info-content p-2 position-absolute w-100" style="display:none;">
+                                                        <small class="fw-bold text-success border-bottom d-block mb-1">Daftar Bangunan</small>
+                                                        <div id="list-bangunan-info" class="list-group list-group-flush overflow-auto" style="max-height: 160px; font-size: 0.75rem;">
+                                                        </div>
+                                                    </div>
+
+                                                </div>
+                                            </div>
+
+                                            <div class="position-absolute" style="top: 10px; left: 10px; z-index: 1000; width: 250px;">
+                                                <select id="filter-di" class="form-select shadow-sm border-primary">
+                                                    <option value="">-- Pilih Daerah Irigasi --</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade  " id="table-pane" role="tabpanel" tabindex="0">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table id="irigasiTable" class="table table-hover w-100">
+                                        <thead class="bg-primary text-white">
+                                            <tr>
+                                                <th class="text-center" width="5%">No</th>
+                                                <th width="35%">Daerah Irigasi</th>
+                                                <th width="30%">Bendung</th>
+                                                <th width="30%">Sumber Air</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for di in data_irigasi %}
+                                            <tr>
+                                                <td class="text-center">{{ forloop.counter }}</td>
+                                                <td class="fw-bold">
+                                                    <a href="javascript:void(0)" 
+                                                        class="view-detail" 
+                                                        data-id="{{ di.id }}"
+                                                        data-json='{{ di.to_json|safe }}'> {{ di.nama_di }}
+                                                    </a>
+                                                </td>
+                                                <td>{{ di.bendung|default:'-' }}</td>
+                                                <td>{{ di.sumber_air|default:'-' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+
+                    <div class="tab-pane fade show active" id="chart-pane" role="tabpanel" tabindex="0">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-primary text-white border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Luas Fungsional</small>
+                                        <h2 class="fw-bold mb-0 counter">{{ total_luas_fungsional|floatformat:0 }}</h2>
+                                        <span class="small">Hektar (Ha)</span>
+                                        <i class="fa-solid fa-seedling stats-icon opacity-25"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-success text-white border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Panjang Jaringan</small>
+                                        <h2 class="fw-bold mb-0 counter">{{ total_panjang|floatformat:0 }}</h2>
+                                        <span class="small">Meter (m)</span>
+                                        <i class="fa-solid fa-water stats-icon opacity-25"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-warning text-dark border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Pintu Air (Total)</small>
+                                        <h2 class="fw-bold mb-0 counter">{{ rekap_pintu.total }}</h2>
+                                        <span class="small">Unit Terdata</span>
+                                        <i class="fa-solid fa-door-open stats-icon opacity-25"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-danger text-white border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Titik Surveyor</small>
+                                        <h2 class="fw-bold mb-0 counter">{{ total_titik_survey }}</h2>
+                                        <span class="small">Lokasi Ter-survey</span>
+                                        <i class="fa-solid fa-location-dot stats-icon opacity-25"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="komposisi-wrapper">
+                            <div id="view-ringkasan">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card shadow-sm border-0 p-4 h-100">
+                                            <h6 class="fw-bold text-muted mb-4 text-center">Indeks Kondisi Jaringan Keseluruhan</h6>
+                                            <div class="row g-2 mt-3 border-top pt-3">
+                                                <div class="col-6 border-end">
+                                                    <div class="text-center">
+                                                        <small class="text-muted d-block small-label">Total Jaringan Primer</small>
+                                                        <span class="fw-bold text-dark">{{ primer_m }} <small>m</small></span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="text-center">
+                                                        <small class="text-muted d-block small-label">Total Jaringan Sekunder</small>
+                                                        <span class="fw-bold text-dark">{{ sekunder_m }} <small>m</small></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style="height: 300px; cursor: pointer;" onclick="showDrillDown()">
+                                                <canvas id="chartUtamaKeseluruhan"></canvas>
+                                            </div>
+                                            <div class="mt-3 text-center">
+                                                <p class="small text-muted mb-0">
+                                                    <i class="fas fa-mouse-pointer me-2"></i> Klik grafik untuk melihat rincian Primer & Sekunder
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card shadow-sm border-0 p-4 h-100">
+                                            <h6 class="fw-bold text-muted mb-4 text-center">Validasi Luas Baku: Permen vs OneMap</h6>
+                                            <div style="height: 300px;">
+                                                <canvas id="chartBandingLuas"></canvas>
+                                            </div>
+                                            <div class="mt-3 text-center">
+                                                <small class="text-muted italic">*Berdasarkan akumulasi data seluruh D.I Kabupaten</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="view-drilldown" style="display: none; opacity: 0;">
+                                <div class="card shadow-sm border-0 p-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                                        <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="hideDrillDown()">
+                                            <i class="fas fa-arrow-left me-2"></i> Kembali
+                                        </button>
+                                        <h6 class="fw-bold text-muted m-0">Detail Kondisi Jaringan: Primer vs Sekunder (%)</h6>
+                                        <div style="width: 100px;"></div>
+                                    </div>
+                                    <div class="row g-4 text-center">
+                                        <div class="col-md-6 border-end">
+                                            <h6 class="small fw-bold text-secondary mb-3">LEVEL JARINGAN: PRIMER</h6>
+                                            <div style="height: 300px;"><canvas id="chartDetailPrimer"></canvas></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="small fw-bold text-secondary mb-3">LEVEL JARINGAN: SEKUNDER</h6>
+                                            <div style="height: 300px;"><canvas id="chartDetailSekunder"></canvas></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> </div>
+        </section>
+
+        {% comment %} <section id="section2" class="gsap-section bg-light"> 
+            <div class="container-fluid">
+                <h4 class="fw-bold mb-4 text-primary">II. Analisis Kondisi Jaringan</h4>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card p-4 shadow-sm border-0 h-100">
+                            <div class="card-body">
+                                <div class="chart-container" style="position: relative; height:60vh; width:100%">
+                                    <canvas id="kondisiChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section3" class="gsap-section"> <div class="container-fluid">
+                {% for di in data_irigasi %}
+                <h4 class="fw-bold mb-4">III. Daftar Detail Daerah Irigasi : {{ di.nama_di }}</h4>
+                {% endfor %}
+                <div class="card p-4 shadow-sm border-0">
+                    <div class="table-responsive" style="max-height: 50vh; overflow-y: auto;">
+                        <table id="irigasiTable" class="table table-hover">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>No</th>
+                                    <th>Nama DI</th>
+                                    <th>Luas (Ha)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for di in data_irigasi %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ di.nama_di }}</td>
+                                    <td>{{ di.luas_fungsional }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Data tidak ditemukan</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section> {% endcomment %}
+
+        <div id="detailOverlay" class="detail-overlay" style="display: none; opacity: 0;">
+                <input type="hidden" id="id_di_aktif" value="">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3 sticky-top">
+                        <h5 class="mb-0 fw-bold" id="titleIrigasi">Detail Daerah Irigasi</h5>
+                        <button type="button" id="closeOverlay" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+
+                    <div class="overlay-body p-0">
+                        <ul class="nav nav-tabs nav-fill bg-light border-bottom sticky-top" id="modalTab" role="tablist" style=" z-index: 1020;">
+                            <li class="nav-item">
+                                <button class="nav-link active fw-bold py-3" id="modal-info-tab" data-bs-toggle="tab" data-bs-target="#modal-info" type="button">
+                                    <i class="fa-solid fa-circle-info me-1"></i> Ringkasan
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link fw-bold py-3" id="modal-map-tab" data-bs-toggle="tab" data-bs-target="#modal-map" type="button">
+                                    <i class="fa-solid fa-map-location-dot me-1"></i> Peta Kondisi
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link fw-bold py-3" id="modal-saluran-tab" data-bs-toggle="tab" data-bs-target="#modal-saluran" type="button">
+                                    <i class="fa-solid fa-water me-1"></i> Saluran
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link fw-bold py-3" id="modal-bangunan-tab" data-bs-toggle="tab" data-bs-target="#modal-bangunan" type="button">
+                                    <i class="fa-solid fa-faucet me-1"></i> Bangunan
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content p-4" id="modalTabContent">
+                            
+                            <div class="tab-pane fade show active" id="modal-info" role="tabpanel">
+                                <div class="card border-0 bg-white shadow-sm mb-4">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold border-bottom pb-2 mb-3 text-primary">Informasi Data Teknis</h6>
+                                        <div class="row g-3 text-center">
+                                            <div class="col-6 col-md-3">
+                                                <small class="text-muted d-block">Sumber Air</small>
+                                                <p id="modalSumber" class="fw-bold mb-0">-</p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <small class="text-muted d-block">Bendung</small>
+                                                <p id="modalBendung" class="fw-bold mb-0">-</p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <small class="text-muted d-block">Luas Berdasarkan Permen Permen PU No 14 Th 2015</small>
+                                                <p class="fw-bold mb-0"><span id="modalPermen">0</span> Ha</p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <small class="text-muted d-block">Luas OneMap</small>
+                                                <p class="fw-bold mb-0"><span id="modalOnemap">0</span> Ha</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="card border-0 shadow-sm p-3 text-center">
+                                            <small class="fw-bold d-block mb-3">Jaringan Primer</small>
+                                            <div style="height: 180px;"><canvas id="chartPrimer"></canvas></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-0 shadow-sm p-3 text-center">
+                                            <small class="fw-bold d-block mb-3">Jaringan Sekunder</small>
+                                            <div style="height: 180px;"><canvas id="chartSekunder"></canvas></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-0 shadow-sm p-3 text-center">
+                                            <small class="fw-bold d-block mb-3">Pintu Pengatur</small>
+                                            <div style="height: 180px;"><canvas id="chartPintu"></canvas></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="modal-map" role="tabpanel">
+                                <div class="card border-0 shadow-sm overflow-hidden">
+                                    <div id="mapDetail" style="height: 60vh; width: 100%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="modal-bangunan" role="tabpanel">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="table-responsive p-3">
+                                        <table id="tabelBangunan" class="table table-striped table-bordered nowrap w-100">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th class="text-center">NO</th>
+                                                    <th>NAMA</th>
+                                                    <th>NOMENKLATUR</th>
+                                                    <th>DECIMAL DEGREES</th>
+                                                    <th>K ASET</th>
+                                                    <th>SALURAN</th>
+                                                    <th>NAMA SALURAN</th>
+                                                    <th>TGL SURVEY</th>
+                                                    <th>TIM SURVEY</th>
+                                                    <th>FOTO</th>
+                                                    <th>LUAS LAYANAN (Ha)</th>
+                                                    <th>FUNGSI SIPIL</th>
+                                                    <th>FUNGSI M/E</th>
+                                                    <th>PRIORITAS</th>
+                                                    <th>KONDISI ASET</th>
+                                                    <th>NILAI %</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            
+
+                        </div> 
+                    </div>
+                </div>
+                
+    {% else %}
+        <section id="loginSection" class="gsap-section"> <div class="d-flex justify-content-center align-items-center w-100">
+                <div class="card shadow border-0" style="width: 100%; max-width: 400px;">
+                    <div class="card-body p-5 text-center">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fa-solid fa-user-lock fa-2x"></i>
+                        </div>
+                        <h4 class="fw-bold">Login SIARUS</h4>
+                        <form method="post" action="{% url 'login' %}" class="text-start mt-4">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Username</label>
+                                <input type="text" name="username" class="form-control" required>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold">Password</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">MASUK</button>
+                        </form>
+                        {% load socialaccount %}
+                        <div class="mt-4">
+                            <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger w-100">
+                                <i class="fa-brands fa-google me-2"></i> Gmail Login
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+
+    
+</div>
+
+
+
+
+<script>
+    {% if user.is_authenticated %}
+    const dataKondisi = {
+        baik: {{ rekap_kondisi.baik|default:0|stringformat:".2f" }},
+        rusak_ringan: {{ rekap_kondisi.rusak_ringan|default:0|stringformat:".2f" }},
+        rusak_berat: {{ rekap_kondisi.rusak_berat|default:0|stringformat:".2f" }}
+    };
+    {% endif %}
+</script>
+{% endblock %}

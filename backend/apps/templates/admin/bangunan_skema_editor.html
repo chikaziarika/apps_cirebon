@@ -1,0 +1,66 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<style>
+    /* Styling agar kotak mirip Gambar 1 */
+    .mermaid .node rect { stroke-width: 2px; }
+    .mermaid .node b { color: #d32f2f; font-size: 14px; }
+    .mermaid .edgeLabel { background-color: #f0f4c3 !important; padding: 2px; border-radius: 4px; }
+</style>
+<div style="padding: 20px; background: #fff; border: 1px solid #ccc;">
+    <h3>Visual Flowchart Designer</h3>
+    <p>Pilih bangunan untuk mengatur alur irigasi secara cepat.</p>
+    
+    <div style="display: flex; gap: 20px;">
+        <div style="flex: 1; border-right: 1px solid #eee; padding-right: 20px;">
+            <label>1. Pilih Bangunan (Hilir):</label>
+            <select id="select-hilir" style="width: 100%; padding: 10px; margin-bottom: 20px;">
+                <option value="">-- Pilih Bangunan --</option>
+                {% for b in bangunan_list %}
+                    <option value="{{ b.id }}">{{ b.nomenklatur_ruas }} (Hulu saat ini: {{ b.terhubung_ke|default:"-" }})</option>
+                {% endfor %}
+            </select>
+
+            <label>2. Pilih Hubungkan Ke (Hulu):</label>
+            <select id="select-hulu" style="width: 100%; padding: 10px; margin-bottom: 20px;">
+                <option value="">-- Pilih Bangunan Hulu --</option>
+                {% for b in bangunan_list %}
+                    <option value="{{ b.id }}">{{ b.nomenklatur_ruas }}</option>
+                {% endfor %}
+            </select>
+
+            <button id="btn-save" class="button" style="background: #28a745; width: 100%; color: white;">
+                UPDATE RELASI SKEMA
+            </button>
+        </div>
+
+        <div style="flex: 2; background: #f9f9f9; padding: 20px; text-align: center;">
+            <div id="preview-mermaid" class="mermaid">
+                {{ global_chart_def|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({ 
+        startOnLoad: true, 
+        securityLevel: 'loose',
+        theme: 'neutral',
+        flowchart: { 
+            useMaxWidth: false, 
+            htmlLabels: true, // WAJIB TRUE agar tag <br/> terbaca
+            curve: 'basis'    // Membuat garis melengkung halus seperti skema teknis
+        }
+    });
+
+    document.getElementById('btn-save').addEventListener('click', function() {
+        const hilirId = document.getElementById('select-hilir').value;
+        const huluId = document.getElementById('select-hulu').value;
+
+        if(!hilirId || !huluId) return alert("Pilih kedua bangunan!");
+
+        alert("Proses simpan relasi: " + hilirId + " berhulu ke " + huluId);
+    });
+</script>
+{% endblock %}

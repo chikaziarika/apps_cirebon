@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<form action="." method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="module">
+        <div class="p-3">
+            <label><b>1. Pilih Daerah Irigasi Tujuan:</b></label><br>
+            <select name="daerah_irigasi" required style="margin-bottom: 20px; width: 300px;">
+                {% for di in daerah_irigasi %}
+                <option value="{{ di.id }}">{{ di.nama_di }}</option>
+                {% endfor %}
+            </select>
+            <br>
+            <label><b>2. Pilih File Excel:</b></label><br>
+            <input type="file" name="file_upload" accept=".csv, .xlsx, .xls" required>
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="Mulai Impor Data" class="default">
+            <a href=".." class="closable">Batal</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

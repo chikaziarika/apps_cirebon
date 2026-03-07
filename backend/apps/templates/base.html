@@ -7,10 +7,62 @@
     <title>{% block title %}SIARUS CARUBAN{% endblock %}</title>
     
     {% include 'includes/assets_css.html' %}
+
+    <style>
+        .mermaid .node rect { 
+            rx: 5px; ry: 5px; /* Membuat sudut lebih tumpul sedikit */
+            padding: 4px 8px !important; 
+        }
+
+        /* 2. Perkecil Ukuran Font Label */
+        .mermaid .nodeLabel {
+            font-size: 10px !important;
+            font-weight: bold;
+        }
+
+        
+        {% for kode in daftar_kode_epaksi %}
+        .type-{{ kode }} .nodeLabel::before {
+            content: "";
+            display: inline-block;
+            width: 16px !important; /* Dari 24px ke 16px */
+            height: 16px !important;
+            margin-right: 4px !important;
+            vertical-align: middle;
+            /* Pastikan path ini sesuai dengan folder hasil rename Bapak */
+            background-image: url("{% static 'icons/' %}{{ kode }}.png"); 
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+        {% endfor %}
+
+        {% for di in data_irigasi %}
+            {% for b in di.bangunan_langsung.all %}
+                {% if b.icon_png %}
+                .type-{{ b.id }} .nodeLabel::before {
+                    content: "";
+                    display: inline-block;
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 8px;
+                    vertical-align: middle;
+                    background-image: url('{{ b.icon_png.url }}');
+                    background-size: contain;
+                    background-repeat: no-repeat;
+                }
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+
+        /* Contoh khusus warna border */
+        .type-B01 rect { fill: #e3f2fd !important; stroke: #2196f3 !important; }
+        .type-P01 rect { fill: #fff3e0 !important; stroke: #ff9800 !important; }
+    </style>
    
 <body>
+
     <div class="wrapper">
-        <nav id="sidebar">
+        {% comment %} <nav id="sidebar">
             <div class="sidebar-header p-4">
                 <h5 class="fw-bold mb-0">SI-IRIGASI</h5>
                 <small class="text-muted">Kabupaten Cirebon</small>
@@ -55,7 +107,7 @@
                     </div>
                 </div>
             </div>
-        </nav>
+        </nav> {% endcomment %}
 
         <main id="main-content">
         
@@ -67,11 +119,31 @@
                     <h4 class="fw-bold mb-0">{% block header_title %}Dashboard{% endblock %}</h4>
                 </div>
                 
-                {% if not user.is_authenticated %}
+                {% comment %} {% if not user.is_authenticated %}
                     <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
                 {% else %}
                     <span class="badge bg-success">Sesi Aktif: {{ user.username }}</span>
-                {% endif %}
+                {% endif %} {% endcomment %}
+                <div class="d-flex align-items-center">
+                    <div class="user-avatar me-3">
+                    {% if user.is_authenticated %}
+                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" 
+                            class="rounded-circle" width="35" height="35">
+
+                    {% endif %}
+                    </div>
+                    <div class="user-profile">
+                        {% if user.is_authenticated %}
+                            <form action="{% url 'logout' %}" method="post" id="logout-form" style="display: inline;">
+                                {% csrf_token %}
+                                <span>Halo, {{ user.username|truncatechars:10 }}!</span>
+                                <button type="submit" class="btn btn-link text-danger p-0 m-0 align-baseline" style="text-decoration: none;">
+                                    <i class="fa-solid fa-right-from-bracket me-2"></i>Logout
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
             </header>
 
             <main class="scrollable-content">
@@ -143,6 +215,93 @@
                                                 </table>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAsetDetail" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-dark text-white">
+                    <h6 class="modal-title fw-bold" id="headerDetailAset">Detail Informasi Aset</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <ul class="nav nav-pills nav-fill bg-light p-2" id="asetTab" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-bold" id="pai-info-tab" data-bs-toggle="tab" data-bs-target="#tab-pai" type="button">
+                                <i class="fa-solid fa-address-card me-2"></i>I. DATA PAI
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold text-success" id="iksi-info-tab" data-bs-toggle="tab" data-bs-target="#tab-iksi" type="button">
+                                <i class="fa-solid fa-chart-line me-2"></i>II. DATA IKSI
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4">
+                        <div class="tab-pane fade show active" id="tab-pai" role="tabpanel">
+                            <div class="tab-pane fade show active" id="tab-pai" role="tabpanel">
+                                <div class="card border-0">
+                                    <div class="card-body p-0">
+                                    <h6 class="fw-bold mb-3">Saluran : <span id="pai-di-nama" class="text-primary">-</span></h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-sm">
+                                            <tbody>
+                                                <tr><th class="bg-light w-25">Jenis Aset</th><td id="pai-jenis">-</td></tr>
+                                                <tr><th class="bg-light">Nama</th><td id="pai-nama">-</td></tr>
+                                                <tr><th class="bg-light">Nomenklatur</th><td id="pai-nomenklatur">-</td></tr>
+                                                <tr><th class="bg-light">Nama Saluran</th><td id="pai-saluran">-</td></tr>
+                                                <tr><th class="bg-light">Luas Areal</th><td id="pai-luas">-</td></tr> <tr><th class="bg-light">Foto</th><td id="pai-foto">-</td></tr>
+                                                <tr><th class="bg-light">Geometri (Lat/Long)</th><td id="pai-geometri">-</td></tr>
+                                                <tr><th class="bg-light">Catatan</th><td id="pai-catatan">-</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="tab-iksi" role="tabpanel">
+                            <div class="p-3">
+                                <div class="row g-3 mb-3 border-bottom pb-3">
+                                    <div class="col-md-5">
+                                        <table class="table table-sm table-borderless mb-0">
+                                            <tr><td class="text-muted">Nama Bangunan</td><td class="fw-bold" id="iksi-nama-aset">-</td></tr>
+                                            <tr><td class="text-muted">Nomenklatur</td><td class="fw-bold" id="iksi-nomenklatur">-</td></tr>
+                                            <tr><td class="text-muted">Tahun Survey</td><td id="iksi-tahun">-</td></tr>
+                                            <tr><td class="text-muted">Surveyor</td><td class="text-primary fw-bold" id="iksi-surveyor">-</td></tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-7 border-start">
+                                        <label class="small fw-bold text-muted mb-2 d-block">PHOTOS</label>
+                                        <div id="iksi-photos-container" class="d-flex flex-wrap gap-2">
+                                            </div>
+                                    </div>
+                                </div>
+
+                                <hr>
+                                <div class="table-responsive">
+                                    <table id="tabelIksiAset" class="table table-sm table-bordered w-100">
+                                        <thead class="table-dark small">
+                                            <tr>
+                                                <th>Kode</th>
+                                                <th>Komponen</th>
+                                                <th>Kondisi</th>
+                                                <th>Nilai</th>
+                                                <th>Bobot</th>
+                                                <th>Akhir</th>
+                                                <th>Final</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>

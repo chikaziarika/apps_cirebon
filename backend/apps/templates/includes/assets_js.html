@@ -16,7 +16,21 @@
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'loose', // PENTING: Agar CSS ::before Bapak jalan
+    theme: 'default',
+    flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true, // PENTING: Agar elemen HTML/Icon bisa nampil
+        curve: 'basis'
+        }
 
+});</script>
 {% load static %}
 <script src="{% static 'js/datatable-setup.js' %}"></script>
 <script src="{% static 'js/dashboard.js' %}"></script>
@@ -24,4 +38,104 @@
 <script>
     // Daftarkan plugin secara global segera setelah script dimuat
     Chart.register(ChartDataLabels);
+</script>
+
+<script>
+    {% if user.is_authenticated %}
+    // 1. Jembatan Data Pintu (Distribusi Air)
+    window.dataPintuGlobal = {
+        baik: {{ rekap_pintu.baik|default:0 }},
+        rr: {{ rekap_pintu.rr|default:0 }},
+        rb: {{ rekap_pintu.rb|default:0 }},
+        total: {{ total_pintu|default:0 }}
+    };
+
+    // 2. Data Kondisi Saluran (Primer + Sekunder)
+    window.dataKondisiKeseluruhan = [
+        {{ data_jaringan.kombinasi.0|stringformat:"f" }}, 
+        {{ data_jaringan.kombinasi.1|stringformat:"f" }}, 
+        {{ data_jaringan.kombinasi.2|stringformat:"f" }}
+    ];
+
+    // 3. Data Luas Baku & Fungsional
+    window.dataLuas = {
+        baku_permen: {{ total_luas_permen|default:0|stringformat:"f" }}, 
+        baku_onemap: {{ total_luas_onemap|default:0|stringformat:"f" }},
+        potensial: {{ total_luas_potensial|default:0|stringformat:"f" }},
+        fungsional: {{ total_luas|default:0|stringformat:"f" }} 
+    };
+
+    // 4. Data Per Daerah Irigasi (Digunakan untuk Drill-down)
+    window.dataIrigasiFull = [
+        {% for di in data_irigasi %}
+        {
+            id: "{{ di.id }}",
+            nama_di: "{{ di.nama_di }}",
+            pt_baik: {{ di.pintu_baik|default:0 }},
+            pt_rr: {{ di.pintu_rr|default:0 }},
+            pt_rb: {{ di.pintu_rb|default:0 }},
+            pt_total: {{ di.jumlah_pintu|default:0 }},
+            luas_fungsional: {{ di.luas_fungsional|stringformat:"f" }},
+            chart_def: `{{ di.flowchart_definition|safe }}`
+        },
+        {% endfor %}
+    ];
+
+
+    window.currentFlowchartDef = `{{ global_chart_def|safe }}`;
+
+    {% endif %}
+</script>
+
+<script>
+    {% if user.is_authenticated %}
+    window.dataKondisiKeseluruhan = [
+        {{ data_jaringan.kombinasi.0|stringformat:"f" }}, 
+        {{ data_jaringan.kombinasi.1|stringformat:"f" }}, 
+        {{ data_jaringan.kombinasi.2|stringformat:"f" }}
+    ];
+
+    window.dataPrimer = {{ data_jaringan.p|safe }};
+    window.dataSekunder = {{ data_jaringan.s|safe }};
+
+
+    window.dataBandingLuas = [
+        {{ total_luas_permen|default:2095|stringformat:"f" }}, 
+        {{ total_luas_fungsional|stringformat:"f" }}
+    ];
+    {% endif %}
+</script>
+
+<script>
+    {% if user.is_authenticated %}
+    window.dataLuas = {
+        baku_permen: {{ total_luas_permen|default:0|stringformat:"f" }}, 
+        baku_onemap: {{ total_luas_onemap|default:0|stringformat:"f" }},
+        potensial: {{ total_luas_potensial|default:0|stringformat:"f" }},
+        fungsional: {{ total_luas|default:0|stringformat:"f" }} 
+    };
+
+    window.dataIrigasiFull = [
+        {% for di in data_irigasi %}
+        {
+            nama_di: "{{ di.nama_di }}",
+            luas_baku_permen: {{ di.luas_baku_permen|stringformat:"f" }},
+            luas_fungsional: {{ di.luas_fungsional|stringformat:"f" }}
+        },
+        {% endfor %}
+    ];
+
+    window.dataIrigasiFull = [
+        {% for di in data_irigasi %}
+        {
+            nama_di: "{{ di.nama_di }}",
+            baik: {{ di.panjang_primer|add:di.panjang_sekunder|default:0|stringformat:"f" }}, // Ini asumsi jumlah total, sesuaikan fieldnya
+            baik: {{ di.primer_baik|add:di.sekunder_baik|default:0|stringformat:"f" }},
+            rr: {{ di.primer_rr|add:di.sekunder_rr|default:0|stringformat:"f" }},
+            rb: {{ di.primer_rb|add:di.sekunder_rb|default:0|stringformat:"f" }},
+            luas_fungsional: {{ di.luas_fungsional|stringformat:"f" }}
+        },
+        {% endfor %}
+    ];
+    {% endif %}
 </script>

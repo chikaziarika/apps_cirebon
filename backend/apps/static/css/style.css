@@ -17,7 +17,7 @@ body, html {
     }
 
     .gsap-section {
-        width: 95%;
+        width: 100%;
         height: 100vh;
         display: flex;
         flex-direction: column;
@@ -28,12 +28,25 @@ body, html {
     }
 
     .gsap-section .container-fluid {
-        margin-top: 20px;
+        margin-top: 0px;
+        
+    }
+
+    .container-fluid {
+        will-change: opacity, filter;
+        backface-visibility: hidden;
+    }
+
+    /* Memastikan view detail memiliki posisi yang tetap */
+    #view-ringkasan, #view-drilldown, #view-detail-luas, 
+    #view-detail-distribusi, #view-detail-sebaran, #view-detail-di {
+        width: 100%;
+        min-height: 100vh;
     }
     
     /* Tambahan agar tabel tidak merusak scroll */
     .table-responsive {
-        max-height: 400px;
+        max-height: 80vh;
         overflow-y: auto;
     }
 /* Header dibuat fixed di atas */
@@ -42,7 +55,7 @@ body, html {
     top: 0;
     right: 0;
     /* Jika sidebar Anda lebarnya 250px, sesuaikan left-nya */
-    left: 250px; 
+    left: 0px; 
     z-index: 1000;
     height: 70px; /* Tentukan tinggi header */
 }
@@ -51,7 +64,7 @@ body, html {
 .scrollable-content {
     margin-top: 70px; 
     height: calc(100vh - 70px); 
-    /* overflow-y: auto; */
+    overflow-y: auto;
     padding: 20px;
     background-color: #f8f9fa; 
     display: flex;
@@ -102,40 +115,27 @@ body, html {
 }
 
 
-.main-content-scrollable {
-    margin-top: 60px; 
-    margin-left: 250px; 
-    height: calc(100vh - 60px); 
-    overflow-y: auto; 
-    padding: 25px;
-    background-color: #f8f9fa;
-}
-
-.wrapper {
-    display: flex;
-    width: 100%;
-    align-items: stretch;
-}
-
-#sidebar {
-    min-width: 29vh;
-    max-width: 29vh;
-    background: var(--sidebar-bg);
-    height: 100vh;
-    position: sticky;
-    top: 0;
+#main-content {
+    width: 100% !important;
+    margin-left: 0 !important;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid #eee;
 }
 
-#main-content {
-    width: 100%;
-    height: 100vh;
-    overflow-y: auto; 
-    position: relative;
-    scroll-behavior: auto !important;; 
-    padding: 0 !important;
+.sticky-header {
+    z-index: 1030; /* Pastikan di atas konten */
+}
+
+/* Hilangkan dekorasi link nav di header */
+.nav-link:hover {
+    color: #0d6efd !important;
+}
+
+/* Gaya untuk badge profile yang bisa diklik */
+.badge[role="button"]:hover {
+    background-color: #f8f9fa !important;
+    border-color: #0d6efd !important;
 }
 
 #main-content {
@@ -302,6 +302,42 @@ body, html {
     border: 1px solid #dee2e6;
 }
 
+/* Menghilangkan padding default leaflet agar header biru mepet ke pinggir */
+.leaflet-popup-content-wrapper {
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: 8px;
+}
+.leaflet-popup-content {
+    margin: 0 !important;
+    width: 200px !important;
+}
+.leaflet-popup-tip-container {
+    display: none; /* Opsional: hilangkan ekor popup agar lebih clean */
+}
+
+/* Styling isi popup */
+.custom-popup .popup-header {
+    font-size: 13px;
+}
+.custom-popup table td {
+    line-height: 1.5;
+}
+
+/* Efek bayangan dan transisi untuk Info Box di Peta */
+#peta-info-box {
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    overflow: hidden;
+    pointer-events: auto; /* Memastikan tombol di dalam box bisa diklik */
+}
+
+/* Pastikan list aset terlihat rapi */
+#peta-info-box ul li {
+    font-size: 11px;
+    padding: 2px 0;
+}
+
 
 /* Pastikan container tabel tidak merusak layout */
 .dataTables_wrapper {
@@ -353,12 +389,11 @@ body, html {
 
 .detail-overlay {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-45%, -46%);
-    width: 85vw;
-    /* max-width: 900px; */
-    height: 75vh;
+    top: 40%;
+    left: 40%;
+    transform: translate(-40%, -43%);
+    width: 95vw;
+    height: 90vh;
     background: white;
     z-index: 2000;
     border-radius: 12px;
@@ -386,9 +421,7 @@ body, html {
     display: none;
 }
 
-.detail-overlay {
-    z-index: 2000;
-}
+
 
 .overlay-body {
     flex: 1;
@@ -422,6 +455,34 @@ body, html {
     overflow-y: auto;
 }
 
+/* Container Utama Grafik */
+.chart-container-wrapper {
+    position: relative;
+    width: 100%;
+    /* Gunakan aspect-ratio agar tinggi mengikuti lebar secara otomatis */
+    aspect-ratio: 16 / 10; 
+    max-height: 260px; /* Batasi tinggi maksimal agar tidak memakan ruang vertikal */
+}
+
+/* Penyesuaian khusus untuk layar dengan tinggi rendah (seperti 630px) */
+@media (max-height: 700px) {
+    .card.p-4 {
+        padding: 1rem !important; /* Perkecil padding dalam card */
+    }
+    .mb-4 {
+        margin-bottom: 0.5rem !important; /* Rapatkan jarak antar elemen */
+    }
+    .small-label {
+        font-size: 0.7rem !important;
+    }
+    .fw-bold.text-dark {
+        font-size: 0.9rem !important;
+    }
+}
+
+
+
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -433,34 +494,38 @@ body, html {
     max-height: 180px !important;
 }
 
-/* Memastikan header pada kolom yang di-freeze tetap berwarna gelap/terlihat */
-.DTFC_LeftHeadWrapper table thead tr th,
-.DTFC_RightHeadWrapper table thead tr th {
-    background-color: #212529 !important; /* Warna dark Bootstrap */
+/* --- FIX FIXED COLUMNS PUTIH/TRANSPARAN --- */
+
+/* 1. Pastikan Header Kolom yang di-freeze tetap terlihat (Gelap) */
+table.dataTable thead tr > .dtfc-fixed-left {
+    background-color: #343a40 !important; /* Warna header gelap */
     color: white !important;
+    z-index: 10 !important;
 }
 
-.dtfc-fixed-left .thead-dark th, 
-.DTFC_LeftHeadWrapper table thead th {
-    background-color: #343a40 !important;
-    color: white !important;
-    border: 1px solid #454d55;
-}
-
-/* Memastikan body pada kolom yang di-freeze tidak transparan */
-.DTFC_LeftBodyWrapper table tbody tr td {
-    background-color: #ffffff !important;
+/* 2. Pastikan Body Kolom yang di-freeze tidak transparan (Putih Solid) */
+table.dataTable tbody tr > .dtfc-fixed-left {
+    background-color: #ffffff !important; /* Harus Putih Solid */
+    z-index: 9 !important;
     border-right: 1px solid #dee2e6;
 }
 
-.dtfc-fixed-left {
-    border-right: 2px solid #dee2e6 !important;
+/* 3. Garis Biru Pembatas (Di akhir kolom Decimal Degrees) */
+/* Karena Bapak freeze 4 kolom, kolom ke-4 (index 3) jadi pembatas */
+table.dataTable thead tr > th.dtfc-fixed-left:last-child,
+table.dataTable tbody tr > td.dtfc-fixed-left:last-child {
+    border-right: 3px solid #4e73df !important; 
+    box-shadow: 4px 0 8px rgba(0,0,0,0.1);
 }
 
-/* Opsional: Efek hover agar baris tetap sinkron warnanya saat di-hover */
-.dataTable tr.selected td, 
-.dataTable tr:hover td {
-    background-color: #f8f9fa !important;
+/* 4. Mencegah Baris "Loncat" (Sangat Penting) */
+.dataTables_scrollBody {
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+table.dataTable {
+    margin: 0 !important;
+    border-collapse: collapse !important;
 }
 
 
@@ -468,3 +533,143 @@ body, html {
 .bg-baik { background-color: #d1e7dd !important; }
 .bg-rusak-ringan { background-color: #fff3cd !important; }
 .bg-rusak-berat { background-color: #f8d7da !important; }
+
+#view-ringkasan, #view-detail-jaringan, #view-detail-luas {
+    transition: all 0.3s ease-in-out;
+}
+
+div.slider {
+    display: none;
+    padding: 15px;
+    background: #ffffff;
+    border-top: 3px solid #198754; /* Garis hijau di atas peta */
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+.custom-tooltip {
+    background-color: #0d3b66 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.custom-tooltip::before {
+    display: none; /* Hilangkan panah tooltip kecil */
+}
+
+/* Gaya Tooltip Peta */
+.map-tooltip {
+    background: rgba(13, 59, 102, 0.9) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+}
+
+.map-tooltip::before {
+    border-top-color: rgba(13, 59, 102, 0.9) !important;
+}
+
+@keyframes blinkDenyut {
+    0% { stroke-opacity: 1; stroke-width: 10px; }
+    50% { stroke-opacity: 0.3; stroke-width: 6px; }
+    100% { stroke-opacity: 1; stroke-width: 10px; }
+}
+
+/* 2. Selektor yang harus sama dengan di JavaScript */
+/* Kita pakai class 'active-filter' sesuai kode JS terakhir */
+path.active-filter {
+    animation: blinkDenyut 1s infinite ease-in-out !important;
+    stroke: #ffc107 !important; /* Warna Kuning Emas */
+    filter: drop-shadow(0 0 12px rgba(255, 193, 7, 1)) !important;
+    stroke-linecap: round;
+    display: block !important;
+}
+
+/* 3. Pastikan class 'no-blink' mematikan animasi */
+path.no-blink {
+    animation: none !important;
+    filter: none !important;
+}
+
+/* Pastikan Modal Bootstrap berada di atas Overlay GSAP */
+#modalAsetDetail {
+    z-index: 2000 !important; /* Nilai harus lebih tinggi dari overlay */
+}
+
+/* Pastikan latar belakang hitam (backdrop) juga ikut naik */
+.modal-backdrop {
+    z-index: 1950 !important;
+}
+
+/* Pastikan overlay GSAP Anda tidak menutupi modal */
+#detailOverlay {
+    z-index: 1050; /* Standar overlay */
+}
+
+.typeBendung rect { fill: #f00 !important; stroke: #333; }
+.node text { font-size: 12px; font-weight: bold; }
+
+.marker-epaksi {
+        background-color: rgba(255, 255, 255, 0.5);
+        border-radius: 4px;
+    }
+
+#carouselLuas {
+    min-height: 55vh; 
+    overflow: visible;
+}
+
+.carousel-item {
+    transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+}
+
+/* Memperjelas Icon Navigasi */
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    background-size: 50%;
+}
+
+/* Jarak untuk indikator dot */
+.carousel-indicators [data-bs-target] {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-bottom: -20px;
+}
+
+/* Styling tombol control leaflet agar seragam */
+.leaflet-control-custom {
+    background: white;
+    width: 34px;
+    height: 34px;
+    line-height: 34px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    border-radius: 5px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.leaflet-control-custom:hover {
+    background: #f4f4f4;
+    color: #0d3b66;
+}
+
+/* Efek animasi blink untuk poligon */
+@keyframes blink-effect {
+    0%   { fill-opacity: 0.3; fill: #28a745; stroke-width: 2; }
+    50%  { fill-opacity: 0.8; fill: #ffeb3b; stroke: #ff0000; stroke-width: 5; } /* Berubah kuning/merah menyala */
+    100% { fill-opacity: 0.3; fill: #28a745; stroke-width: 2; }
+}
+
+.polygon-blink {
+    animation: blink-effect 0.8s infinite;
+    /* Pastikan transisi berjalan mulus */
+    transition: all 0.3s ease;
+}

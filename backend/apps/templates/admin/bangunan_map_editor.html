@@ -1,0 +1,168 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<style>
+    /* Kunci lebar agar tidak meledak */
+    .swiper { width: 100%; max-width: 1000px; height: 750px; background: #f8f9fa; border-radius: 10px; margin: 0 auto; }
+    .swiper-slide { width: 100% !important; display: flex; flex-direction: column; align-items: center; overflow-y: auto; padding: 40px; box-sizing: border-box; }
+    .di-badge { background: #4e73df; color: white; padding: 10px 25px; border-radius: 50px; margin-bottom: 25px; font-weight: bold; }
+    
+    .mermaid-wrapper { 
+        width: 100%; 
+        max-width: 600px; 
+        margin: 0 auto;
+        overflow: hidden;
+    }
+
+    .mermaid-target svg {
+        width: 100% !important;
+        height: auto !important;
+        max-width: 500px !important; 
+    }
+    .alertKritis .nodeLabel {
+        color: #b71c1c !important;
+        font-weight: 900 !important;
+    }
+    
+    /* Tambahkan animasi berkedip tipis agar menarik perhatian */
+    .alertKritis rect {
+        animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+        0% { stroke-opacity: 1; }
+        50% { stroke-opacity: 0.3; }
+        100% { stroke-opacity: 1; }
+    }
+
+    #custom-tooltip {
+        position: fixed;
+        display: none;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-size: 13px;
+        z-index: 9999;
+        pointer-events: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        border: 1px solid #ff4444;
+    }
+
+    .mermaid .node label {
+        line-height: 1.5 !important;
+        text-align: center !important;
+        display: block !important;
+    }
+
+    /* Pastikan SVG hasil render tetap lurus dan tidak meledak */
+    .mermaid-target svg {
+        max-width: 100% !important;
+        height: auto !important;
+        display: block;
+        margin: 0 auto;
+    }
+</style>
+
+<div style="display: flex; gap: 20px;">
+    <div style="flex: 0.6; min-width: 280px; background: white; padding: 15px; border: 1px solid #ccc; border-radius: 8px; height: fit-content;">
+        <h3 style="margin: 0 0 15px 0;">🛠 Relasi Jaringan</h3>
+        <label>1. Hilir:</label>
+        <select id="sel-hilir" style="width: 100%; margin-bottom: 15px; padding: 8px;">
+            <option value="">-- Pilih Bangunan --</option>
+            {% for b in bangunan_list %}<option value="{{ b.id }}">{{ b.nomenklatur_ruas }}</option>{% endfor %}
+        </select>
+        <label>2. Hulu:</label>
+        <select id="sel-hulu" style="width: 100%; margin-bottom: 20px; padding: 8px;">
+            <option value="NULL">-- Titik Awal (Bendung) --</option>
+            {% for b in bangunan_list %}<option value="{{ b.id }}">{{ b.nomenklatur_ruas }}</option>{% endfor %}
+        </select>
+        <button id="save-koneksi" class="button" style="background:#28a745; color:white; width:100%; padding:10px; border:none; cursor:pointer;">UPDATE KONEKSI</button>
+    </div>
+
+    <div style="flex: 2;">
+        <div class="swiper">
+            <div class="swiper-wrapper">
+                {% for item in daftar_skema %}
+                <div class="swiper-slide">
+                    <div class="di-badge">DAERAH IRIGASI: {{ item.nama_di }}</div>
+                    <div class="mermaid-wrapper">
+                        <pre class="mermaid-src" style="display:none;">{{ item.chart_code|safe }}</pre>
+                        <div class="mermaid-target"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+<script>
+
+    function callback(message) {
+        // Kita bisa gunakan alert sederhana atau custom tooltip
+        // Untuk demo yang elegan, kita gunakan alert dulu agar aman
+        alert("INFO DETAIL:\n" + message);
+    }
+    mermaid.initialize({ 
+        startOnLoad: false, 
+        securityLevel: 'loose',
+        flowchart: { 
+            htmlLabels: true, // WAJIB TRUE agar <br/> diproses sebagai ganti baris
+            useMaxWidth: false,
+            curve: 'stepBefore' // Membuat garis menyiku agar lurus vertikal/horizontal
+        }
+    });
+
+    // 2. Fungsi Render yang Aman (Mencegah Width Meledak)
+    async function renderSlide(index) {
+        const slides = document.querySelectorAll('.swiper-slide');
+        const target = slides[index].querySelector('.mermaid-target');
+        const src = slides[index].querySelector('.mermaid-src');
+
+        // Hanya render jika belum pernah di-render sebelumnya
+        if (src && target && target.innerHTML === "") {
+            try {
+                const uniqueId = 'graph-' + index + '-' + Date.now();
+                const { svg } = await mermaid.render(uniqueId, src.textContent);
+                target.innerHTML = svg;
+            } catch (e) {
+                console.error("Mermaid error:", e);
+                target.innerHTML = "❌ Syntax Error pada skema ini.";
+            }
+        }
+    }
+
+    // 3. Inisialisasi Swiper
+    const swiper = new Swiper('.swiper', {
+        slidesPerView: 1,
+        centeredSlides: true,
+        pagination: { el: '.swiper-pagination', clickable: true },
+        navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+        on: {
+            init: function() { renderSlide(this.activeIndex); },
+            slideChange: function() { renderSlide(this.activeIndex); }
+        }
+    });
+
+    // 4. AJAX Save (Kode Bapak)
+    document.getElementById('save-koneksi').addEventListener('click', function() {
+        const hilir = document.getElementById('sel-hilir').value;
+        const hulu = document.getElementById('sel-hulu').value;
+        if (!hilir) return alert("Pilih bangunan hilir!");
+        fetch('../update-skema-api/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ hilir_id: hilir, hulu_id: hulu === "NULL" ? null : hulu })
+        }).then(res => res.json()).then(data => { if(data.status==='success') location.reload(); });
+    });
+</script>
+{% endblock %}

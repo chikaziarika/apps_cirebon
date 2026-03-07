@@ -1,0 +1,165 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<style>
+    /* Container Styling */
+    #content-main { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    
+    /* Header & Text */
+    h1 { color: #444; font-size: 24px; margin-bottom: 10px; border-bottom: 2px solid #28a745; padding-bottom: 10px; }
+    .description { color: #666; margin-bottom: 20px; font-style: italic; }
+    .alert-info-merge { background: #e8f4fd; border-left: 4px solid #2d93ad; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+
+    /* Modern Table Styling */
+    .kmz-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .kmz-table th { background: #417690; color: white; padding: 12px 15px; text-align: left; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    .kmz-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    .kmz-table tr:hover { background: #f0f7fa; transition: 0.3s; }
+
+    /* Badge Type Styling */
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+    .badge-linestring { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
+
+    /* Button Styling */
+    .submit-row { margin-top: 30px; padding: 20px; background: #f9f9f9; border-top: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .btn-merge { background: #28a745 !important; padding: 12px 30px !important; font-weight: bold !important; border-radius: 4px !important; color: white !important; border: none; cursor: pointer; }
+    .btn-merge:hover { background: #218838 !important; }
+    .btn-cancel { color: #ba2121; text-decoration: none; margin-left: 15px; font-weight: bold; }
+
+    .table-container { max-height: 400px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; }
+    thead th { position: sticky; top: 0; z-index: 1; }
+
+    .search-container {
+        margin-bottom: 15px;
+        position: relative;
+    }
+    #kmz-search {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 2px solid #79aec8;
+        border-radius: 25px;
+        font-size: 14px;
+        outline: none;
+    }
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #79aec8;
+    }
+    .counter-badge {
+        font-size: 12px;
+        color: #666;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'change' obj.pk %}">{{ obj }}</a>
+    &rsaquo; Gabungkan Segmen KMZ
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1><span class="icon">🔍</span> Filter & Gabungkan Segmen Saluran</h1>
+    
+    <div class="description">
+        Ditemukan <strong>{{ features|length }}</strong> segmen. 
+        Gunakan kolom pencarian untuk mempercepat pemilihan.
+    </div>
+
+    <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="kmz-search" placeholder="Cari nama segmen atau kode ruas (misal: Ruas 1, HM, Induk...)" autocomplete="off">
+    </div>
+
+    <form method="post" id="kmz-form">
+        {% csrf_token %}
+        <div class="table-container">
+            <table class="kmz-table" id="target-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">
+                            <input type="checkbox" id="select-all">
+                        </th>
+                        <th>Nama Segmen Jalur <span id="visible-count" class="counter-badge"></span></th>
+                        <th>Tipe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in features %}
+                    <tr class="kmz-row">
+                        <td style="text-align: center;">
+                            <input type="checkbox" name="selected_features" value="{{ forloop.counter0 }}" class="feature-checkbox">
+                        </td>
+                        <td class="feature-name-cell"><strong>{{ f.name }}</strong></td>
+                        <td><span class="badge badge-linestring">📈 Segmen</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="submit-row">
+            <input type="submit" value="✅ GABUNGKAN SEGMEN TERPILIH" class="btn-merge">
+            <a href="{% url opts|admin_urlname:'change' obj.pk %}" class="btn-cancel">Batal</a>
+        </div>
+    </form>
+</div>
+
+
+
+<script>
+    // 1. FUNGSI SEARCH (FILTER)
+    const searchInput = document.getElementById('kmz-search');
+    const rows = document.querySelectorAll('.kmz-row');
+    const visibleCount = document.getElementById('visible-count');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        let count = 0;
+
+        rows.forEach(row => {
+            const text = row.querySelector('.feature-name-cell').textContent.toLowerCase();
+            if (text.includes(filter)) {
+                row.style.display = "";
+                count++;
+            } else {
+                row.style.display = "none";
+            }
+        });
+        
+        visibleCount.textContent = filter ? `(Ditemukan: ${count})` : "";
+    });
+
+    // 2. FUNGSI SELECT ALL (Hanya yang tampil)
+    document.getElementById('select-all').addEventListener('change', function() {
+        const isChecked = this.checked;
+        rows.forEach(row => {
+            if (row.style.display !== "none") {
+                row.querySelector('.feature-checkbox').checked = isChecked;
+            }
+        });
+    });
+
+    // 3. KLIK BARIS UNTUK CENTANG
+    rows.forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                const cb = this.querySelector('.feature-checkbox');
+                cb.checked = !cb.checked;
+            }
+        });
+    });
+</script>
+{% endblock %}

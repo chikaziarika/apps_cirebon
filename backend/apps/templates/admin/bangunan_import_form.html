@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div class="module">
+    <form action="." method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="p-3">
+            <h3>Import Data Bangunan (Excel)</h3>
+            <p>Pilih Daerah Irigasi untuk data ini:</p>
+            <select name="daerah_irigasi" required class="vSelectField">
+                {% for di in daerah_irigasi %}
+                <option value="{{ di.id }}">{{ di.nama_di }}</option>
+                {% endfor %}
+            </select>
+            <br><br>
+            <input type="file" name="file_upload" accept=".xlsx, .xls, .csv" required>
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="Proses Import Bangunan" class="default">
+        </div>
+    </form>
+</div>
+{% endblock %}

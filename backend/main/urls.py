@@ -24,12 +24,17 @@ from apps import views as apps_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('apps.urls')),
-    path('api/saluran/<int:di_id>/', apps_views.get_saluran_data, name='get_saluran_data'),
-    path('api/bangunan/<int:di_id>/', apps_views.get_bangunan_data, name='get_bangunan_data'), 
+    
+    # Login/Logout/Auth
     path('accounts/', include('allauth.urls')),
     path('accounts/login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+
+    # API Auth (untuk login via API jika perlu)
+    path('api-auth/', include('rest_framework.urls')),
+
+    # --- PINTU GERBANG UTAMA ---
+    # Cukup satu baris ini, dia akan memanggil semua URL di apps/urls.py
     path('', include('apps.urls')),
     
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

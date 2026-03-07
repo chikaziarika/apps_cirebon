@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div class="card" style="padding: 20px; background: white;">
+    <h2>Upload File Excel Konjar (.xlsx)</h2>
+    <form action="." method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="excel_file" accept=".xlsx, .xls" required>
+        <div style="margin-top: 20px;">
+            <button type="submit" class="button" style="background: #28a745;">Proses Excel</button>
+            <a href=".." class="button cancel-link">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

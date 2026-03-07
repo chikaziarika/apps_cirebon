@@ -11,9 +11,22 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 1. Definisikan Root OSGeo4W
+OSGEO4W_ROOT = r'C:\OSGeo4W' 
+# (Atau sesuaikan dengan jalur OSGeo4W Bapak)
+
+# 2. Set Path Environment
+os.environ['PATH'] = os.path.join(OSGEO4W_ROOT, 'bin') + ';' + os.environ['PATH']
+os.environ['PROJ_LIB'] = os.path.join(OSGEO4W_ROOT, 'share', 'proj')
+
+# 3. Point ke DLL (Pastikan versi gdal sesuai folder bin Bapak)
+GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal309.dll') 
+GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'geos_c.dll')
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,7 +38,6 @@ SECRET_KEY = 'django-insecure-ddsqtk79hkb&&yce@+4$59zn*@zm5!s3a3s03h-7t5wa%eswx#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -38,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'nested_admin',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -48,9 +61,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_gis',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt',
     'corsheaders',
     
     # Local Apps
+    'leaflet',
     'apps',
     'channels',
 ]
@@ -135,7 +150,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication', # <-- Tambahkan ini di atas
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
 }
 
@@ -173,6 +190,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder', # Ini kuncinya!
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+]
 
 STATIC_URL = 'static/'
 
@@ -209,10 +230,16 @@ GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'geos_c.dll')
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+
 ]
 
-ALLOWED_HOSTS = ['*'] # Memberikan akses ke semua IP di jaringan
-
+ALLOWED_HOSTS = [
+    'api.pentasconstruction.com', 
+    '127.0.0.1', 
+    'localhost',
+    '*',
+    '192.168.18.30',
+]
 # Only run this configuration if we are on Windows
 if os.name == 'nt':
     # List possible installation paths
@@ -254,3 +281,40 @@ ACCOUNT_SIGNUP_REDIRECT_URL = '/'
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # Token aktif 1 hari
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7), # Refresh token aktif 7 hari
+    'ROTATE_REFRESH_TOKENS': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+}
+
+# settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.pentasconstruction.com',
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+LEAFLET_CONFIG = {
+    'DEFAULT_CENTER': (-6.826, 108.604),
+    'DEFAULT_ZOOM': 15,
+    'ATTRIBUTION_PREFIX': 'Sistem Irigasi Cirebon',
+    'PLUGINS': {
+        'forms': {'auto-include': True}, # Kembalikan ke True
+    }
+}
+
+LEAFLET_CONFIG = {
+    'DEFAULT_CENTER': (-6.826, 108.604),
+    'DEFAULT_ZOOM': 15,
+    'ATTRIBUTION_PREFIX': 'Sistem Irigasi Cirebon',
+    'PLUGINS': {
+        'forms': {'auto-include': True}, # Ini otomatis mengaktifkan fitur Draw/Edit bawaan
+    }
+}

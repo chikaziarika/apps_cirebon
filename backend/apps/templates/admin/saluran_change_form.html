@@ -1,0 +1,178 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+    {{ block.super }}
+    
+    <link href="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css" rel="stylesheet" />
+    <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css" />
+    <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+    <script>
+        // Menangkap data GeoJSON Saluran Utama dari admin.py ke variabel global
+        window.PARENT_SALURAN_GEOJSON = {{ parent_saluran_geojson|default:"null"|safe }};
+        
+        // Cek di console apakah data berhasil masuk
+        console.log("Data Garis Induk:", window.PARENT_SALURAN_GEOJSON);
+    </script>
+
+    <script>
+        window.addEventListener('map:init', function (e) {
+            var map = e.detail.map;
+            var mapId = e.detail.id;
+            
+            // Log semua ID Peta yang sedang dibuat oleh Django
+            console.log("Peta Leaflet sedang di-load dengan ID:", mapId);
+            
+            // --- A - E. BASEMAPS & NAVIGASI ---
+            if (typeof L.Control.Fullscreen !== 'undefined') map.addControl(new L.Control.Fullscreen({ position: 'topleft' }));
+            if (typeof L.Control.Geocoder !== 'undefined') L.Control.geocoder({ position: 'topleft', placeholder: 'Cari lokasi...', defaultMarkGeocode: true }).addTo(map);
+
+            var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' });
+            var googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] });
+            L.control.layers({ "Peta Jalan (OSM)": osm, "Google Satellite": googleSat }).addTo(map);
+            osm.addTo(map); 
+
+            if (typeof L.control.measure !== 'undefined') new L.control.measure({ position: 'topright', primaryLengthUnit: 'meters', activeColor: '#28a745', completedColor: '#004085' }).addTo(map);
+
+            // --- F. LOGIKA LRS UNTUK PETA SEGMEN ---
+            // Kita KECUALIKAN peta utama (yang ID-nya id_geom-map atau id_geojson-map)
+            // Jadi semua peta yang ada di dalam kotak Segmen PASTI akan kena fitur LRS ini
+            if (mapId !== 'id_geom-map' && mapId !== 'id_geojson-map') {
+                try {
+                    console.log("=== MEMULAI LRS UNTUK PETA SEGMEN:", mapId, "===");
+                    
+                    // 1. Sembunyikan toolbar draw bawaan leaflet
+                    var drawControl = document.querySelector('#' + mapId + ' .leaflet-draw');
+                    if (drawControl) drawControl.style.display = 'none';
+
+                    // 2. Cek Data Induk
+                    if (!window.PARENT_SALURAN_GEOJSON || window.PARENT_SALURAN_GEOJSON === 'null') {
+                        console.warn("LRS Dibatalkan: Garis Saluran Utama belum ada.");
+                        return;
+                    }
+
+                    // 3. Konversi Koordinat ke Turf.js LineString
+                    var parentCoords = window.PARENT_SALURAN_GEOJSON.coordinates;
+                    if (window.PARENT_SALURAN_GEOJSON.type === 'MultiLineString') {
+                        parentCoords = parentCoords[0]; 
+                    }
+                    var relGaris = turf.lineString(parentCoords);
+
+                    // 4. Gambar Rel Abu-abu di Peta Segmen
+                    var layerRel = L.geoJSON(relGaris, {
+                        style: { color: '#808080', weight: 8, opacity: 0.5, dashArray: '10, 10' },
+                        interactive: false
+                    }).addTo(map);
+
+                    // Paskan layar ke rel (pakai setTimeout agar tidak bentrok dengan load map)
+                    setTimeout(function() { map.fitBounds(layerRel.getBounds(), {padding: [30, 30]}); }, 500);
+
+                    // 5. Cek Data Tersimpan di textarea (Apakah ini edit atau segmen baru?)
+                    var textfieldId = mapId.replace('-map', '');
+                    var textarea = document.getElementById(textfieldId);
+                    var existingData = textarea ? textarea.value : "";
+                    
+                    var ptStart, ptEnd;
+                    if (existingData && existingData.includes("type")) {
+                        var parsed = JSON.parse(existingData);
+                        var coords = parsed.type === 'MultiLineString' ? parsed.coordinates[0] : parsed.coordinates;
+                        ptStart = coords[0];
+                        ptEnd = coords[coords.length - 1];
+                    } else {
+                        ptStart = parentCoords[0];
+                        ptEnd = parentCoords[parentCoords.length - 1];
+                    }
+
+                    // 6. Buat Marker Awal dan Akhir
+                    var startIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+                    var endIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+
+                    var markerStart = L.marker([ptStart[1], ptStart[0]], {draggable: true, icon: startIcon, zIndexOffset: 1000}).addTo(map);
+                    var markerEnd = L.marker([ptEnd[1], ptEnd[0]], {draggable: true, icon: endIcon, zIndexOffset: 1000}).addTo(map);
+                    var layerSegmenAktif = L.featureGroup().addTo(map);
+
+                    // 7. FUNGSI UTAMA: Potong Garis dan Hitung Panjang
+                    function updateSegmen() {
+                        var pAwal = turf.point([markerStart.getLatLng().lng, markerStart.getLatLng().lat]);
+                        var pAkhir = turf.point([markerEnd.getLatLng().lng, markerEnd.getLatLng().lat]);
+
+                        // Snap ke rel
+                        var snapAwal = turf.nearestPointOnLine(relGaris, pAwal);
+                        var snapAkhir = turf.nearestPointOnLine(relGaris, pAkhir);
+
+                        markerStart.setLatLng([snapAwal.geometry.coordinates[1], snapAwal.geometry.coordinates[0]]);
+                        markerEnd.setLatLng([snapAkhir.geometry.coordinates[1], snapAkhir.geometry.coordinates[0]]);
+
+                        // Mencegah error potong jika titik sama
+                        if (snapAwal.geometry.coordinates[0] === snapAkhir.geometry.coordinates[0] && snapAwal.geometry.coordinates[1] === snapAkhir.geometry.coordinates[1]) {
+                            return; 
+                        }
+
+                        // Potong Garis
+                        var sliced = turf.lineSlice(snapAwal, snapAkhir, relGaris);
+
+                        // Ambil Warna dari Select
+                        var rowPrefix = textfieldId.split('-geom')[0];
+                        var kondisiSelect = document.getElementById(rowPrefix + '-kondisi');
+                        var warnaKondisi = '#007bff';
+                        if(kondisiSelect) warnaKondisi = getColorByKondisi(kondisiSelect.value);
+
+                        // Gambar
+                        layerSegmenAktif.clearLayers();
+                        L.geoJSON(sliced, { style: { color: warnaKondisi, weight: 6, opacity: 1 } }).addTo(layerSegmenAktif);
+
+                        // Update Jarak di Form
+                        var inputPanjang = document.getElementById(rowPrefix + '-panjang');
+                        if(inputPanjang) inputPanjang.value = turf.length(sliced, {units: 'meters'}).toFixed(2);
+
+                        // Simpan Koordinat ke Form Django
+                        if(textarea) {
+                            textarea.value = JSON.stringify({
+                                "type": "MultiLineString",
+                                "coordinates": [sliced.geometry.coordinates]
+                            });
+                        }
+                    }
+
+                    // 8. Event Listener
+                    markerStart.on('dragend', updateSegmen);
+                    markerEnd.on('dragend', updateSegmen);
+                    
+                    var rowPrefixInit = textfieldId.split('-geom')[0];
+                    var kondisiDropdown = document.getElementById(rowPrefixInit + '-kondisi');
+                    if(kondisiDropdown) kondisiDropdown.addEventListener('change', updateSegmen);
+
+                    updateSegmen();
+                    console.log("=== LRS SUKSES DITERAPKAN ===");
+
+                } catch (err) {
+                    console.error("GAGAL MEMUAT LRS SEGMEN:", err);
+                }
+            }
+        });
+
+        function getColorByKondisi(kondisi) {
+            if (!kondisi) return '#808080';
+            kondisi = kondisi.toUpperCase();
+            if (kondisi === 'BAIK') return '#28a745'; 
+            if (kondisi === 'RR') return '#ffc107';   
+            if (kondisi === 'RB') return '#dc3545';   
+            if (kondisi === 'BAP') return '#6c757d';  
+            return '#007bff';
+        }
+    </script>
+    
+    <style>
+        .leaflet-control-measure { z-index: 1000 !important; }
+        .leaflet-control-geocoder { z-index: 1000 !important; }
+    </style>
+{% endblock %}
