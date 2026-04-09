@@ -17,11 +17,12 @@ urlpatterns = [
 
     # --- API UNTUK WEB DASHBOARD (JSON) ---
     path('api/saluran/<int:di_id>/', views.api_saluran_list, name='api-saluran-list'),
-    path('api/bangunan/<int:di_id>/', views.api_bangunan_list, name='api-bangunan-list'),
+    path('api/bangunan/<int:di_id>/', views.api_bangunan, name='api-bangunan'),
     path('api/daerah-irigasi/', views.api_daerah_irigasi_all, name='api-di-all'),
     path('api/geojson/<str:type_source>/<int:data_id>/', views.api_get_geojson, name='get_geojson_api'),
 
     # --- API UNTUK MOBILE (Flutter Sync) ---
+    path('login-proses/', views.login_view, name='login'),
     path('api/login/', views.api_login, name='api_login'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

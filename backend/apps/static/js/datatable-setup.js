@@ -28,126 +28,171 @@ function loadSaluranTable(diId) {
         $('#tabelSaluran').DataTable().destroy();
     }
 
-    $('#tabelSaluran').DataTable({
-        destroy: true,       // Memaksa hancurkan instance lama
+    var tableSaluranModal = $('#tabelSaluran').DataTable({
+        destroy: true,
         stateSave: false,
         ajax: {
-            url: `/api/saluran/${diId}/`,
-            dataSrc: 'data'
+            url: `/api/daerah-irigasi/`, // Berubah ke endpoint umum
+            dataSrc: function(json) {
+                // 1. Cari objek DI yang ID-nya cocok dengan diId yang diklik
+                // Kita asumsikan json adalah Array of Objects
+                let dataDI = json.find(item => item.id == diId);
+                
+                if (dataDI && dataDI.saluran_list) {
+                    // 2. Filter hanya saluran yang sudah approved
+                    return dataDI.saluran_list.filter(item => item.is_approved === true);
+                }
+                return []; // Kembalikan array kosong jika tidak ketemu
+            }
         },
+        "dom": "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'B>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+        "buttons": [
+            { extend: 'copy', className: 'btn btn-xs btn-outline-dark', text: '<i class="fas fa-copy"></i>' },
+            { extend: 'excel', className: 'btn btn-xs btn-outline-dark', text: '<i class="fas fa-file-excel"></i>' },
+            { extend: 'pdf', className: 'btn btn-xs btn-outline-dark', text: '<i class="fas fa-file-pdf"></i>' },
+            { extend: 'print', className: 'btn btn-xs btn-outline-dark', text: '<i class="fas fa-print"></i>' }
+        ],
         scrollX: true,
         autoWidth: false,
+        pageLength: 5,
         columns: [
-            // 1. No
-            { data: null, render: (d, t, r, meta) => meta.row + 1, className: 'text-center' },
-            
-            // 2. Nama Saluran
+            // 0. No
+            { data: null, render: (d, t, r, meta) => meta.row + 1, className: 'text-center align-middle' },
+            // 1. Nama Saluran
+            { data: 'nama_saluran', className: 'align-middle fw-bold text-primary', defaultContent: '-' },
+            // 2. Tingkat / Kode
             { 
-                data: 'nama_saluran', 
+                data: 'kode_aset_saluran', 
+                className: 'text-center align-middle',
+                render: function(data) {
+                    let kode = data || '-';
+                    let mapping = {'S01':'Primer','S02':'Sekunder','S15':'Tersier'};
+                    return `<span class="badge border border-secondary text-secondary">${kode} - ${mapping[kode] || 'Lainnya'}</span>`;
+                }
+            },
+            // 3. Hulu
+            { 
+                data: null, className: 'small align-middle',
                 render: function(data, type, row) {
-                    let iconSaluran = (row.jaringan_tingkat === 'PRIMER') ? 'S01' : 'S02';
-                    
-                    // Gunakan template literal yang bersih
-                    let imgPath = "/static/icons/" + iconSaluran + ".png"; 
-                    
-                    console.log("Mencari icon di:", imgPath); // Cek di console F12 browser munculnya apa
+                    let geo = row.geometry_data || row.geom;
+                    if (geo && geo.coordinates && geo.coordinates.length > 0) {
+                        let startCoord = geo.type === 'LineString' ? geo.coordinates[0] : geo.coordinates[0][0];
+                        if (startCoord && startCoord.length >= 2) return `<i class="fa-solid fa-circle-dot text-danger me-1"></i>${parseFloat(startCoord[0]).toFixed(5)}, ${parseFloat(startCoord[1]).toFixed(5)}`;
+                    }
+                    return '-';
+                }
+            },
+            // 4. Hilir
+            { 
+                data: null, className: 'small align-middle',
+                render: function(data, type, row) {
+                    let geo = row.geometry_data || row.geom;
+                    if (geo && geo.coordinates && geo.coordinates.length > 0) {
+                        let endCoord = geo.type === 'LineString' ? geo.coordinates[geo.coordinates.length - 1] : geo.coordinates[geo.coordinates.length - 1][geo.coordinates[geo.coordinates.length - 1].length - 1];
+                        if (endCoord && endCoord.length >= 2) return `<i class="fa-solid fa-flag-checkered text-primary me-1"></i>${parseFloat(endCoord[0]).toFixed(5)}, ${parseFloat(endCoord[1]).toFixed(5)}`;
+                    }
+                    return '-';
+                }
+            },
+            // 5. Panjang
+            { data: 'panjang_saluran', className: 'text-end align-middle fw-bold', render: (d) => d ? `${parseFloat(d).toLocaleString('id-ID')} m` : '0 m' },
+            // 6. Luas
+            { data: 'luas_layanan', className: 'text-end align-middle', defaultContent: '0 Ha' },
+            
+            // --- 7. LEBAR SALURAN (BARU) ---
+            // { data: 'lebar_saluran', className: 'text-center align-middle', render: (d) => d ? `${d} m` : '0 m' },
+            
+            // --- 8. TINGGI SALURAN (BARU) ---
+            // { data: 'tinggi_saluran', className: 'text-center align-middle', render: (d) => d ? `${d} m` : '0 m' },
 
-                    return `
-                        <div class="d-flex align-items-center">
-                            <img src="${imgPath}" 
-                                width="20" 
-                                height="20" 
-                                class="me-2" 
-                                style="object-fit: contain;"
-                                onerror="console.log('Gagal load:', this.src); this.style.display='none'">
-                            <a href="javascript:void(0)" 
-                                onclick="filterBangunanBySaluran(${row.id}, '${data}')" 
-                                class="fw-bold text-primary text-decoration-none">
-                                ${data}
-                            </a>
-                        </div>`;
-                }
-            },
-            
-            // 3. Tingkat
-            { data: 'jaringan_tingkat', className: 'text-center', defaultContent: '-' },
-            
-            // 4. Bangunan Hulu (DENGAN ICON)
-            { 
-                data: 'bangunan_hulu_nama', 
-                className: 'small', 
-                defaultContent: '-',
+            // 9. Kondisi
+           { 
+                data: null,
+                className: 'text-center align-middle',
                 render: function(data, type, row) {
-                    if(!data || data === '-') return '-';
-                    // Gunakan kode aset dari row jika ada, kalau tidak ada biarkan kosong
-                    let kodeAset = row.bangunan_hulu_kode || ''; 
-                    return `
-                        <div class="d-flex align-items-center">
-                            ${kodeAset ? `<img src="/static/icons/${kodeAset}.png" width="18" class="me-2" onerror="this.style.display='none'">` : ''}
-                            <span>${data}</span>
-                        </div>`;
+                    let kondisiFinal = "BAIK";
+                    
+                    
+                    if (row.segmen_list && row.segmen_list.length > 0) {
+                        // Ambil semua status kondisi dari segmen
+                        let daftarKondisi = row.segmen_list.map(s => s.kondisi.toUpperCase());
+                        
+                        if (daftarKondisi.includes("RB") || daftarKondisi.includes("RUSAK BERAT")) kondisiFinal = "R. BERAT";
+                        else if (daftarKondisi.includes("RR") || daftarKondisi.includes("RUSAK RINGAN")) kondisiFinal = "R. RINGAN";
+                        else if (daftarKondisi.includes("BAP")) kondisiFinal = "BAP";
+                    } else {
+                        // Jika segmen kosong, pakai field kondisi_aset sebagai fallback
+                        kondisiFinal = row.kondisi_aset || "BAIK";
+                    }
+
+                    let badgeClass = 'bg-success';
+                    let sortKey = 1; // 1 untuk BAIK
+
+                    if (kondisiFinal.includes('RINGAN') || kondisiFinal === 'RR') { 
+                        badgeClass = 'bg-warning text-dark'; 
+                        kondisiFinal = 'R. RINGAN';
+                        sortKey = 2; // 2 untuk RR
+                    }
+                    else if (kondisiFinal.includes('BERAT') || kondisiFinal === 'RB') { 
+                        badgeClass = 'bg-danger'; 
+                        kondisiFinal = 'R. BERAT';
+                        sortKey = 3; // 3 untuk RB
+                    }
+                    else if (kondisiFinal.includes('BAP') || kondisiFinal === 'BELUM ADA PASANGAN') { 
+                        badgeClass = 'bg-secondary'; 
+                        kondisiFinal = 'BAP';
+                        sortKey = 4; // 4 untuk BAP
+                    }
+                    else {
+                        kondisiFinal = 'BAIK';
+                        sortKey = 1;
+                    }
+
+                    // PERBAIKAN 3: Gunakan parameter 'type' untuk memberitahu DataTables
+                    if (type === 'sort') {
+                        return sortKey;
+                    }
+                    return `<span class="badge ${badgeClass}" style="font-size: 10px; min-width: 65px;">${kondisiFinal}</span>`;
                 }
             },
-            
-            // 5. Bangunan Hilir (DENGAN ICON)
+            // 10. Aksi
             { 
-                data: 'bangunan_hilir_otomatis', 
-                className: 'small', 
-                defaultContent: '-',
-                render: function(data, type, row) {
-                    if(!data || data === '-') return '-';
-                    let kodeAset = row.bangunan_hilir_kode || ''; // Pastikan field ini ada di API Bapak
-                    return `
-                        <div class="d-flex align-items-center">
-                            ${kodeAset ? `<img src="/static/icons/${kodeAset}.png" width="18" class="me-2" onerror="this.style.display='none'">` : ''}
-                            <span>${data}</span>
-                        </div>`;
-                }
-            },
-            
-            // 6. Panjang (m)
-            { 
-                data: 'panjang_saluran', 
-                render: d => d ? `<strong>${parseFloat(d).toLocaleString('id-ID')}</strong>` : '0',
-                className: 'text-end' 
-            },
-            
-            // 7. Luas (Ha)
-            { 
-                data: 'areal_fungsional', 
-                render: d => d ? `<strong>${parseFloat(d).toLocaleString('id-ID')}</strong>` : '0',
-                className: 'text-end' 
-            },
-            
-            // 8. Kondisi (Mapping 'kinerja_individu')
-            { 
-                data: 'kinerja_individu', 
-                className: 'text-center',
-                render: d => {
-                    const statusMap = { 'B': 'BAIK', 'RR': 'RUSAK RINGAN', 'RS': 'RUSAK SEDANG', 'RB': 'RUSAK BERAT' };
-                    const colorMap = { 'B': 'success', 'RR': 'warning text-dark', 'RS': 'orange', 'RB': 'danger' };
-                    const label = statusMap[d] || 'BAIK';
-                    const color = colorMap[d] || 'success';
-                    return `<span class="badge bg-${color}" style="font-size: 10px;">${label}</span>`;
-                }
-            },
-            
-            // 9. Aksi
-            { 
-                data: null, 
-                className: 'text-center',
-                render: (data, type, row) => {
-                    return `<button class="btn btn-xs btn-outline-info" onclick="showDetailSaluran(${row.id})">
-                                <i class="fa-solid fa-magnifying-glass"></i>
-                            </button>`;
-                }
+                data: 'id', className: 'text-center align-middle',
+                render: (data, type, row) => `
+                    <div class="btn-group shadow-sm">
+                        <button class="btn btn-xs btn-primary" onclick="filterBangunanBySaluran(${data}, '${row.nama_saluran}')"><i class="fa-solid fa-filter"></i></button>
+                        <button class="btn btn-xs btn-info text-white" onclick="ambilDataDanBukaModal(${data}, ${diId})"><i class="fa-solid fa-eye"></i></button>
+                    </div>`
             }
         ],
-        language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json" },
-        drawCallback: function() {
-            $(this).DataTable().columns.adjust();
-        }
+        language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json" }
     });
+
+    // --- LOGIKA FILTER DINAMIS ---
+    $('#filterKodeSaluranModal').off('change').on('change', function() {
+        tableSaluranModal.column(2).search($(this).val()).draw();
+    });
+
+    // PENTING: Index filter kondisi berubah jadi 9 karena ada sisipan kolom Lebar & Tinggi
+    $('#filterKondisiSaluranModal').off('change').on('change', function() {
+        tableSaluranModal.column(9).search($(this).val()).draw();
+    });
+}
+
+
+/** * Fungsi helper untuk membersihkan format teks nomenklatur
+ */
+function cleanNomenklatur(data) {
+    if (!data || data === '-') return '-';
+    let text = data.trim();
+    if (text.startsWith('- (')) {
+        text = text.replace('- (', '').replace(')', '').trim();
+    } else if (text.startsWith('- ')) {
+        text = text.replace('- ', '').trim();
+    }
+    return text;
 }
 
 // Fungsi Dummy untuk Tombol Rekap
@@ -167,6 +212,11 @@ var     Instance = null;
 
 window.dataAsetGlobal = [];
 
+// =========================================================
+// LOAD TABEL BANGUNAN (KOLOM BARU)
+// =========================================================
+var tableBangunanInstance = null;
+
 function loadBangunanTable(diId, saluranId = null, namaSaluran = null) {
     if ($.fn.DataTable.isDataTable('#tabelBangunan')) {
         $('#tabelBangunan').DataTable().clear().destroy();
@@ -175,11 +225,24 @@ function loadBangunanTable(diId, saluranId = null, namaSaluran = null) {
     let apiUrl = `/api/bangunan/${diId}/`;
     if (saluranId) apiUrl += `?saluran_id=${saluranId}`;
 
-    // PERBAIKAN: Gunakan variabel tableBangunanInstance secara konsisten
-    tableBangunanInstance = $('#tabelBangunan').DataTable({
-        "pageLength": 5,
-        "lengthMenu": [[5, 10, 25], [5, 10, 25]],
-        "ordering": false,
+    var tableBangunan = $('#tabelBangunan').DataTable({
+        "pageLength": 10,
+        "lengthMenu": [[5, 10, 25, 50], [5, 10, 25, 50]],
+        
+        // 1. TAMBAHKAN FITUR EXPORT
+        "dom": "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'B>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+        "buttons": [
+            { extend: 'copy', className: 'btn btn-xs btn-outline-dark' },
+            { extend: 'excel', className: 'btn btn-xs btn-outline-dark' },
+            { extend: 'pdf', className: 'btn btn-xs btn-outline-dark' },
+            { extend: 'print', className: 'btn btn-xs btn-outline-dark' }
+        ],
+
+        // 4. ORDER LIST: Kode Aset (Index 2) ASC, Kondisi (Index 8) ASC (BAIK duluan)
+        "order": [[2, "asc"], [8, "asc"]],
+
         "ajax": {
             "url": apiUrl,
             "dataSrc": function(json) {
@@ -190,124 +253,101 @@ function loadBangunanTable(diId, saluranId = null, namaSaluran = null) {
         "scrollX": true,
         "autoWidth": false,
         "columns": [
-            {
-                "className": 'dt-control',
-                "orderable": false,
-                "data": "kode_aset", // Ambil data dari field kode_aset
-                "defaultContent": '',
-                "render": function (data, type, row) {
-                    // Gunakan kode_aset (misal: B01, P01) untuk memanggil gambar
-                    // Jika kode_aset kosong atau '0', kita pakai icon default
-                    let iconTarget = (data && data !== '0') ? data : 'default';
-                    
-                    return `
-                        <button class="btn btn-link p-0 btn-toggle-map" title="Klik untuk lihat peta">
-                            <img src="/static/icons/${iconTarget}.png" 
-                                width="28" 
-                                class="img-thumbnail border-primary shadow-sm"
-                                onerror="this.src='/static/icons/default.png'; this.onerror=null;">
-                        </button>`;
+            { "data": null, "className": "text-center", "render": (d, t, r, meta) => meta.row + 1 },
+            { 
+                "data": "nomenklatur_ruas", 
+                "className": "fw-bold text-primary",
+                "render": (data, type, row) => data || row.nama_aset_manual || "-"
+            },
+            { 
+                "data": "kode_aset_display", 
+                "className": "text-center",
+                "render": function(data, type, row) {
+                    let val = data || row.kode_aset || '-';
+                    return `<span class="badge border border-secondary text-secondary">${val}</span>`;
                 }
             },
-            { "data": "nomenklatur_ruas", "defaultContent": "-" },
-            { "data": "nama_saluran", "defaultContent": "-" },
             { 
                 "data": null, 
                 "className": "text-center",
-                "render": function(data, type, row) {
-                    if(!row.latitude || row.latitude == 0) return '<span class="badge bg-secondary">No GPS</span>';
-                    return `<span class="small text-muted">${row.latitude.toFixed(5)}, ${row.longitude.toFixed(5)}</span>`;
-                }
+                "render": (data, type, row) => (!row.latitude || row.latitude == 0) ? 
+                    '<span class="badge bg-secondary">No GPS</span>' : 
+                    `<span class="small text-muted">${row.longitude.toFixed(5)}, ${row.latitude.toFixed(5)}</span>`
             },
-            { "data": "kecamatan", "defaultContent": "-" },
-            { "data": "desa", "defaultContent": "-" },
-            { 
-                "data": null,
-                "render": d => (d.kode_aset && d.kode_aset !== '0') ? `<b>${d.kode_aset}</b> - ${d.nama_aset_manual || ''}` : "-"
-            },
+            { "data": "nama_di", "defaultContent": "-" },
+            { "data": "nama_saluran", "defaultContent": "-" }, // Index 5 untuk Filter
+            { "data": "surveyor", "defaultContent": "-" },
             { 
                 "data": "luas_areal", 
-                "render": d => d ? parseFloat(d).toLocaleString('id-ID') + ' Ha' : '0 Ha',
-                "className": "text-end"
+                "className": "text-center fw-bold",
+                "render": d => d ? parseFloat(d).toLocaleString('id-ID') : '0'
             },
             { 
-                "data": null,
-                "render": function(d) {
-                    let st = 'BAIK', cl = 'bg-success';
-                    if (d.pintu_rusak_berat > 0) { st = 'RB'; cl = 'bg-danger'; }
-                    else if (d.pintu_rusak_ringan > 0) { st = 'RR'; cl = 'bg-warning text-dark'; }
-                    return d.pintu_total_unit > 0 ? `<div class="text-center"><span class="badge ${cl}">${st}</span><br><small>${d.nama_jenis_pintu || '-'}</small></div>` : '-';
-                }
-            },
-            { 
-                data: null,
-                className: 'small',
-                render: function(data, type, row) {
-                    // Gabungkan semua status
-                    let res = '';
-                    if (row.sal_induk_baik > 0) res += `<span class="text-success">B: ${row.sal_induk_baik}m</span><br>`;
-                    if (row.sal_induk_rusak_ringan > 0) res += `<span class="text-warning">RR: ${row.sal_induk_rusak_ringan}m</span><br>`;
-                    if (row.sal_induk_rusak_berat > 0) res += `<span class="text-danger">RB: ${row.sal_induk_rusak_berat}m</span><br>`;
-                    if (row.sal_induk_bap > 0) res += `<span class="text-muted">BAP: ${row.sal_induk_bap}m</span>`;
+                "data": "kondisi_bangunan", 
+                "className": "text-center", // Index 8 untuk Filter
+                "render": function(data, type, row) {
+                    let k = (data || row.kondisi_aset || 'BAIK').toUpperCase();
                     
-                    return res || '-';
-                }
-            },
-            { 
-                data: null,
-                className: 'small',
-                render: function(data, type, row) {
-                    // Gabungkan semua status
-                    let res = '';
-                    if (row.sal_sekunder_baik > 0) res += `<span class="text-success">B: ${row.sal_sekunder_baik}m</span><br>`;
-                    if (row.sal_sekunder_rusak_ringan > 0) res += `<span class="text-warning">RR: ${row.sal_sekunder_rusak_ringan}m</span><br>`;
-                    if (row.sal_sekunder_rusak_berat > 0) res += `<span class="text-danger">RB: ${row.sal_sekunder_rusak_berat}m</span><br>`;
-                    if (row.sal_sekunder_bap > 0) res += `<span class="text-muted">BAP: ${row.sal_sekunder_bap}m</span>`;
-                    
-                    return res || '-';
+                    let badgeClass = 'bg-success';
+                    let labelTeks = 'BAIK';
+                    let sortKey = 1; // Angka 1 untuk BAIK
+
+                    // Penentuan Warna, Teks, dan Urutan
+                    if (k.includes('RR') || k.includes('RINGAN')) { 
+                        badgeClass = 'bg-warning text-dark'; 
+                        labelTeks = 'R. RINGAN';
+                        sortKey = 2; // Angka 2 untuk RUSAK RINGAN
+                    } 
+                    else if (k.includes('RB') || k.includes('BERAT')) { 
+                        badgeClass = 'bg-danger'; 
+                        labelTeks = 'R. BERAT';
+                        sortKey = 3; // Angka 3 untuk RUSAK BERAT
+                    }
+                    else if (k.includes('BAP') || k.includes('PASANGAN')) {
+                        badgeClass = 'bg-secondary';
+                        labelTeks = 'BAP';
+                        sortKey = 4; // Angka 4 untuk BAP
+                    }
+                    else {
+                        badgeClass = 'bg-success';
+                        labelTeks = 'BAIK';
+                        sortKey = 1;
+                    }
+
+                    // --- JIKA DATATABLES MEMINTA DATA UNTUK DIURUTKAN (SORT) ---
+                    if (type === 'sort') {
+                        return sortKey;
+                    }
+
+                    // --- JIKA DATATABLES MEMINTA DATA UNTUK DITAMPILKAN (DISPLAY) ---
+                    return `<span class="badge ${badgeClass}" style="font-size: 10px; min-width: 65px;">${labelTeks}</span>`;
                 }
             },
             { 
                 "data": null, 
-                "render": function(data, type, row) {
-
-                    return `<button class="btn btn-sm btn-info text-white" 
-                            onclick="showDetailPaiIksi(${row.id}, '${row.nomenklatur_ruas}')">
-                            <i class="fa-solid fa-eye"></i></button>`;
-                }
+                "className": "text-center",
+                "render": (data, type, row) => `<button class="btn btn-xs btn-info text-white shadow-sm" onclick="showDetailPaiIksi(${row.id}, '${row.nomenklatur_ruas}')"><i class="fa-solid fa-eye me-1"></i>Detail</button>`
             }
-        ]
+        ],
+        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json" },
+        "initComplete": function () {
+            var api = this.api();
+            // Isi otomatis dropdown Filter Saluran dari data yang ada di tabel
+            $('#filterSaluranModalBangunan').html('<option value="">-- Filter Semua Saluran --</option>');
+            api.column(5).data().unique().sort().each(function (d) {
+                if(d && d !== '-') $('#filterSaluranModalBangunan').append(`<option value="${d}">${d}</option>`);
+            });
+        }
     });
 
+    // 2. LOGIKA FILTER SALURAN
+    $('#filterSaluranModalBangunan').on('change', function() {
+        tableBangunan.column(5).search($(this).val()).draw();
+    });
 
-    $('#tabelBangunan tbody').off('click', 'button.btn-toggle-map').on('click', 'button.btn-toggle-map', function () {
-        var tr = $(this).closest('tr');
-        var row = tableBangunanInstance.row(tr);
-        var rowData = row.data();
-
-        if (row.child.isShown()) {
-            $('div.slider', row.child()).slideUp(function () { row.child.hide(); tr.removeClass('shown'); });
-        } else {
-            tableBangunanInstance.rows().every(function () {
-                if (this.child.isShown()) { this.child.hide(); $(this.node()).removeClass('shown'); }
-            });
-
-            var diIdAktif = $('#id_di_aktif').val();
-            var urlGeojsonDariModal = $(`.view-detail[data-id="${diIdAktif}"]`).attr('data-geojson');
-            
-
-            rowData.geojson = urlGeojsonDariModal; 
-
-            console.log("DEBUG: Menitipkan URL GeoJSON ke baris:", rowData.geojson);
-
-
-            var mapId = 'map-' + rowData.id;
-            row.child(formatChildRow(mapId, rowData)).show();
-            tr.addClass('shown');
-            $('div.slider', row.child()).slideDown();
-
-            initChildMap(mapId, rowData);
-        }
+    // 3. LOGIKA FILTER KONDISI
+    $('#filterKondisiModalBangunan').on('change', function() {
+        tableBangunan.column(8).search($(this).val()).draw();
     });
 }
 
@@ -621,6 +661,7 @@ $(document).on("click", ".view-detail", function() {
         pt_rr: parseFloat(el.data('pt_rr')) || 0,
         pt_rb: parseFloat(el.data('pt_rb')) || 0
     };
+ 
 
         // Update UI
         $('#modalNama').text(diData.nama_di || "-");
@@ -630,7 +671,7 @@ $(document).on("click", ".view-detail", function() {
         $('#modalOnemap').text(diData.luas_baku_onemap || 0);
         $('#titleIrigasi').text('Detail: ' + (diData.nama_di || ""));
 
-        // 3. Update Summary Inventory (Sesuaikan dengan Key API Bapak)
+        // 3. Update Summary Inventory (Sesuaikan dengan Key API)
         $('#countPrimer').text((diData.panjang_primer || 0) + " m");
         $('#countSekunder').text((diData.panjang_sekunder || 0) + " m");
         

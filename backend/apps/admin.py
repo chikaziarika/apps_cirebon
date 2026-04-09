@@ -12,6 +12,10 @@ from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.contrib.gis.geos import GEOSGeometry
 import json
+from django.contrib.sites.models import Site
+from django.contrib.auth.models import Group # Jika ingin hide Groups juga
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
+from rest_framework.authtoken.models import TokenProxy
 import re
 from django import forms
 from leaflet.forms.widgets import LeafletWidget
@@ -32,13 +36,26 @@ from django.http import HttpResponse, JsonResponse
 from leaflet.admin import LeafletGeoAdmin
 from django.http import HttpResponseRedirect
 import nested_admin
-
+from django.forms.widgets import ClearableFileInput
 from django.forms import Media
 # Paksa urutan global
 Media.js = [
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
 ] + list(Media.js) if hasattr(Media, 'js') else []
 
+
+class ImagePreviewWidget(ClearableFileInput):
+    def render(self, name, value, attrs=None, renderer=None):
+        output = super().render(name, value, attrs, renderer)
+        if value and hasattr(value, 'url'):
+            # Menambahkan tag <img> tepat di atas tombol file input
+            preview = f'''
+                <div style="margin-bottom: 10px;">
+                    <img src="{value.url}" style="max-height: 150px; border-radius: 6px; border: 2px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"/>
+                </div>
+            '''
+            return mark_safe(preview + output)
+        return output
 
 # ==========================================
 # ADMIN: DAERAH IRIGASI
@@ -50,7 +67,7 @@ class DaerahIrigasiAdmin(admin.ModelAdmin):
             'fields': ('kode_di', 'nama_di', 'kelompok_di', 'debit_awal', 'is_approved')
         }),
         ('Data Teknis & Sumber Air', {
-            'fields': ('bendung', 'sumber_air', 'luas_baku_permen', 'luas_baku_onemap')
+            'fields': ('bendung', 'sumber_air', 'luas_baku_permen', 'luas_baku_onemap', 'luas_potensial')
         }),
         ('Statistik Jaringan Primer (Otomatis)', {
             'fields': (('primer_baik', 'primer_rr', 'primer_rb', 'primer_bap'), 'panjang_primer'),
@@ -58,6 +75,9 @@ class DaerahIrigasiAdmin(admin.ModelAdmin):
         }),
         ('Statistik Jaringan Sekunder (Otomatis)', {
             'fields': (('sekunder_baik', 'sekunder_rr', 'sekunder_rb', 'sekunder_bap'), 'panjang_sekunder'),
+        }),
+        ('Statistik Jaringan Tersier (Otomatis)', {
+            'fields': (('tersier_baik', 'tersier_rr', 'tersier_rb', 'tersier_bap'), 'panjang_tersier'),
         }),
         ('Statistik Pintu & Luas', {
             'fields': (('pintu_baik', 'pintu_rr', 'pintu_rb'), 'jumlah_pintu', 'total_luas_fungsional'),
@@ -68,7 +88,7 @@ class DaerahIrigasiAdmin(admin.ModelAdmin):
     )
     
     # list_display = ('nama_di', 'kode_di', 'bendung', 'total_luas_fungsional', 'is_approved')
-    list_display = ('nama_di', 'kode_di', 'get_luas_format', 'get_primer_format', 'is_approved')
+    list_display = ('nama_di', 'kode_di', 'luas_baku_permen', 'luas_baku_onemap', 'luas_fungsional', 'luas_potensial' ,'is_approved')
     
     list_filter = ('kelompok_di', 'is_approved')
     search_fields = ('nama_di', 'kode_di')
@@ -76,6 +96,7 @@ class DaerahIrigasiAdmin(admin.ModelAdmin):
     readonly_fields = (
         'primer_baik', 'primer_rr', 'primer_rb', 'primer_bap', 'panjang_primer',
         'sekunder_baik', 'sekunder_rr', 'sekunder_rb', 'sekunder_bap', 'panjang_sekunder',
+        'tersier_baik', 'tersier_rr', 'tersier_rb', 'tersier_bap', 'panjang_tersier',
         'pintu_baik', 'pintu_rr', 'pintu_rb', 'jumlah_pintu', 'total_luas_fungsional'
     )
     
@@ -139,6 +160,8 @@ class DaerahIrigasiAdmin(admin.ModelAdmin):
 class PaiSaluranInline(admin.StackedInline):
     model = Paisaluran
     can_delete = False
+    extra = 0
+    classes = ('collapse',)
     verbose_name = "Informasi PAI (Pengelolaan Aset Irigasi)"
     fieldsets = (
         ('Identitas Aset', {'fields': (('jenis_aset_kode', 'nama_aset', 'nomenklatur'), ('bangunan_hulu', 'bangunan_hilir'))}),
@@ -151,6 +174,7 @@ class PaiSaluranInline(admin.StackedInline):
 class LaporanIksiInline(admin.TabularInline):
     model = LaporanIksiSaluran
     extra = 0
+    classes = ('collapse',)
     fields = ('tahun', 'total_nilai_iksi') 
     readonly_fields = ('total_nilai_iksi',) 
     verbose_name = "Riwayat IKSI"
@@ -162,42 +186,96 @@ class DetailSegmenForm(forms.ModelForm):
         model = DetailSegmenSaluran
         fields = '__all__'
         widgets = {
-            'geom': LeafletWidget(), # Memunculkan peta untuk field geom
+            'geom': LeafletWidget(), 
+            # 👇 PASANG WIDGET PREVIEW DI SINI 👇
+            'foto_admin': ImagePreviewWidget(),
+            'foto_admin_2': ImagePreviewWidget(),
+            'foto_admin_3': ImagePreviewWidget(),
+            'foto_admin_4': ImagePreviewWidget(),
+            'foto_admin_5': ImagePreviewWidget(),
         }
+
 
 
 class DetailSegmenInline(admin.StackedInline):
     model = DetailSegmenSaluran
     form = DetailSegmenForm
-    extra = 1  
-    fields = ('kondisi', 'panjang', 'titik_awal', 'titik_akhir', 'geom', 'foto_admin', 'display_foto_segmen', 'keterangan')
+    extra = 0
+    classes = ('collapse',)
+    # extra = 1  
+    fields = (
+        'kondisi', 'panjang', 'titik_awal', 'titik_akhir', 'geom', 
+        'foto_admin', 'foto_admin_2', 'foto_admin_3', 'foto_admin_4', 'foto_admin_5',
+        'display_foto_segmen', 'keterangan'
+    )
     readonly_fields = ('display_foto_segmen',)
     classes = ('collapse',)
+
+    
 
     verbose_name = "Detail Ruas Per Segmen Kondisi"
     verbose_name_plural = "DAFTAR SEGMEN KONDISI (Banyak Segmen)"
 
-    @admin.display(description='Preview Foto (Hybrid)')
-    def display_foto_segmen(self, obj):
-        html_output = '<div style="display: flex; gap: 10px;">'
+    # @admin.display(description='Preview Foto (Hybrid)')
+    # def display_foto_segmen(self, obj):
+    #     html_output = '<div style="display: flex; gap: 10px;">'
         
-        # 1. Render Foto dari Admin (jika ada)
-        if hasattr(obj, 'foto_admin') and obj.foto_admin:
-            html_output += f'<img src="{obj.foto_admin.url}" style="height: 60px; width: 90px; object-fit: cover; border: 2px solid #28a745;"/>'
+    #     # 1. Render Foto dari Admin (jika ada)
+    #     if hasattr(obj, 'foto_admin') and obj.foto_admin:
+    #         html_output += f'<img src="{obj.foto_admin.url}" style="height: 60px; width: 90px; object-fit: cover; border: 2px solid #28a745;"/>'
             
-        # 2. Render Foto dari Mobile App (jika ada JSON)
+    #     # 2. Render Foto dari Mobile App (jika ada JSON)
+    #     if obj.foto and obj.foto not in ["[]", "null", ""]:
+    #         try:
+    #             path = obj.foto.replace('[', '').replace(']', '').replace('"', '').replace("'", "").split(',')[0].strip()
+    #             if path:
+    #                 full_url = f"/media/{path}" if not path.startswith(('http', '/media/')) else path
+    #                 html_output += f'<img src="{full_url}" style="height: 60px; width: 90px; object-fit: cover; border: 2px solid #007bff;"/>'
+    #         except:
+    #             pass
+                
+    #     html_output += '</div>'
+    #     if html_output == '<div style="display: flex; gap: 10px;"></div>':
+    #         return mark_safe('<span style="color: #999; font-size: 0.8rem;">Tidak ada foto</span>')
+    #     return mark_safe(html_output)
+
+    @admin.display(description='Preview Foto (Web & Mobile)')
+    def display_foto_segmen(self, obj):
+        html_output = '<div style="display: flex; gap: 10px; flex-wrap: wrap;">'
+        
+        # 2. Masukkan kelima field foto ke dalam list untuk di-looping
+        foto_fields = [
+            obj.foto_admin, 
+            getattr(obj, 'foto_admin_2', None), 
+            getattr(obj, 'foto_admin_3', None),
+            getattr(obj, 'foto_admin_4', None),
+            getattr(obj, 'foto_admin_5', None)
+        ]
+        
+        # Render Foto dari Web Admin (Bingkai Hijau)
+        for foto in foto_fields:
+            if foto:
+                html_output += f'<img src="{foto.url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #28a745; border-radius: 4px;"/>'
+            
+        # Render Foto dari Mobile App/JSON (Bingkai Biru)
         if obj.foto and obj.foto not in ["[]", "null", ""]:
             try:
-                path = obj.foto.replace('[', '').replace(']', '').replace('"', '').replace("'", "").split(',')[0].strip()
-                if path:
-                    full_url = f"/media/{path}" if not path.startswith(('http', '/media/')) else path
-                    html_output += f'<img src="{full_url}" style="height: 60px; width: 90px; object-fit: cover; border: 2px solid #007bff;"/>'
+                # Bersihkan string JSON
+                paths = obj.foto.replace('[', '').replace(']', '').replace('"', '').replace("'", "").split(',')
+                for path in paths:
+                    path = path.strip()
+                    if path:
+                        full_url = f"/media/{path}" if not path.startswith(('http', '/media/')) else path
+                        html_output += f'<img src="{full_url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #007bff; border-radius: 4px;"/>'
             except:
                 pass
                 
         html_output += '</div>'
-        if html_output == '<div style="display: flex; gap: 10px;"></div>':
+        
+        # Jika benar-benar kosong
+        if html_output == '<div style="display: flex; gap: 10px; flex-wrap: wrap;"></div>':
             return mark_safe('<span style="color: #999; font-size: 0.8rem;">Tidak ada foto</span>')
+            
         return mark_safe(html_output)
 
 
@@ -228,7 +306,7 @@ from leaflet.forms.widgets import LeafletWidget
 
 @admin.register(Saluran)
 class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
-
+    list_per_page = 10
     change_form_template = "admin/saluran_change_form.html"
     settings_overrides = {
         'DEFAULT_CENTER': (-6.826, 108.604),
@@ -245,20 +323,22 @@ class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
 
     list_display = (
         'nama_saluran', 
+        'kode_aset_saluran',
         'daerah_irigasi', 
         'surveyor', 
         'tingkat_jaringan',    
         'get_panjang_format', 
         'is_approved',   
+        'lebar_saluran', 'tinggi_saluran',
     )
     
     
     fieldsets = (
         ('Informasi Utama', {
-            'fields': ('nama_saluran', 'daerah_irigasi', 'surveyor', 'tingkat_jaringan', 'is_approved')
+            'fields': ('nama_saluran', 'kode_aset_saluran', 'daerah_irigasi', 'surveyor', 'tingkat_jaringan', 'is_approved')
         }),
         ('Data Geospasial', {
-            'fields': ('panjang_saluran', 'geom', 'geojson', 'tombol_pilih_kmz')
+            'fields': ('panjang_saluran', 'lebar_saluran', 'tinggi_saluran', 'geom', 'geojson', 'tombol_pilih_kmz')
         }),
         ('Rekap Kondisi (Meter)', {
             'fields': (
@@ -278,25 +358,6 @@ class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
     readonly_fields = ()
 
     
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        # Setelah semua segmen disimpan, panggil fungsi update total
-        obj = form.instance
-        if hasattr(obj, 'update_from_segments'):
-            obj.update_from_segments()
-        elif hasattr(obj, 'refresh_summary'):
-            obj.refresh_summary()
-
-    def recalculate_segments(self, request, queryset):
-        count = 0
-        for obj in queryset:
-            obj.refresh_summary() # Fungsi yang kita buat di models.py
-            count += 1
-        self.message_user(request, f"Berhasil menghitung ulang panjang dari segmen untuk {count} saluran.")
-    recalculate_segments.short_description = "🔄 Hitung Ulang Panjang dari Segmen"
-
-
-
     # 4. Fungsi untuk memformat angka panjang agar ada satuan 'm'
     @admin.display(description='Panjang (m)', ordering='panjang_saluran')
     def get_panjang_format(self, obj):
@@ -502,17 +563,53 @@ class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
     
 
     def save_model(self, request, obj, form, change):
+        # 1. Update panjang_saluran dari KMZ/Geom HANYA JIKA masih kosong atau peta baru digambar
+        panjang_diedit_manual = 'panjang_saluran' in form.changed_data
+        
         if obj.geom:
-            try:
+            peta_diubah = 'geom' in form.changed_data
+            if (peta_diubah and not panjang_diedit_manual) or not obj.panjang_saluran:
+                try:
+                    obj.panjang_saluran = round(obj.geom.transform(32749, clone=True).length, 2)
+                except:
+                    obj.panjang_saluran = round(obj.geom.length * 111320, 2)
 
-                obj.panjang_saluran = round(obj.geom.transform(32749, clone=True).length, 2)
-            except:
-                # Fallback jika transformasi gagal
-                obj.panjang_saluran = round(obj.geom.length * 111320, 2)
-        
+        # Proses simpan data asli
         super().save_model(request, obj, form, change)
+
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
         
-        # Update total ke DI
+        obj = form.instance
+        
+        # 1. Simpan angka panjang saluran yang diketik/didapat sebelum dirusak oleh rekap
+        panjang_saluran_asli = form.cleaned_data.get('panjang_saluran')
+
+        # 2. Jalankan fungsi bawaan (Ini akan menghitung RR, RB, BAP dari Segmen)
+        # AWAS: Fungsi ini akan mengubah obj.panjang_saluran menjadi 516
+        if hasattr(obj, 'refresh_summary'):
+            obj.refresh_summary()
+
+        # 3. KEMBALIKAN angka panjang saluran ke aslinya (misal: 3364)
+        if panjang_saluran_asli and panjang_saluran_asli > 0:
+            obj.panjang_saluran = panjang_saluran_asli
+
+        # 4. LOGIKA OTOMATIS: Panjang BAIK = Panjang Total - (RR + RB + BAP)
+        total_rusak = (obj.panjang_rr or 0) + (obj.panjang_rb or 0) + (obj.panjang_bap or 0)
+        
+        if obj.panjang_saluran >= total_rusak:
+            sisa_baik = obj.panjang_saluran - total_rusak
+            obj.panjang_baik = round(sisa_baik, 2)
+        else:
+            # Jaga-jaga jika input rusak melebih total panjang, total ngalah
+            obj.panjang_saluran = round(total_rusak, 2)
+            obj.panjang_baik = 0
+            
+        # 5. Simpan nilai akhirnya ke database
+        obj.save(update_fields=['panjang_baik', 'panjang_saluran'])
+        
+        # 6. Update total ke D.I.
         if obj.is_approved and obj.daerah_irigasi:
             obj.daerah_irigasi.update_totals()
 
@@ -530,15 +627,27 @@ class JenisPintuAdmin(admin.ModelAdmin):
 
 class UnitPintuInline(nested_admin.NestedTabularInline):
     model = UnitPintuBangunan
-    extra = 1  # Baris kosong untuk input pintu baru
-    fields = ('nomor_pintu', 'jenis_pintu', 'kondisi', 'lebar_pintu', 'tinggi_pintu', 'foto_pintu')
+    extra = 0 
+    # Menggunakan nama_pintu menggantikan nomor_pintu
+    fields = ('nama_pintu', 'jenis_pintu', 'kondisi', 'lebar_pintu', 'tinggi_pintu', 'foto_pintu')
 
-
+class DetailLayananForm(forms.ModelForm):
+    class Meta:
+        model = DetailLayananBangunan
+        fields = '__all__'
+        widgets = {
+            'foto_aset': ImagePreviewWidget(),
+            'foto_aset_2': ImagePreviewWidget(),
+            'foto_aset_3': ImagePreviewWidget(),
+            'foto_aset_4': ImagePreviewWidget(),
+            'foto_aset_5': ImagePreviewWidget(),
+        }
 
 class DetailLayananInline(nested_admin.NestedStackedInline):
     model = DetailLayananBangunan
+    form = DetailLayananForm
     autocomplete_fields = ['jenis_pintu']
-    readonly_fields = ('pintu_total_unit', 'display_foto_galeri')
+    readonly_fields = ('pintu_total_unit', 'display_foto_galeri') 
     extra = 0
     inlines = [UnitPintuInline]
 
@@ -554,6 +663,24 @@ class DetailLayananInline(nested_admin.NestedStackedInline):
     def display_foto_galeri(self, obj):
         from django.utils.html import format_html
         html_output = '<div style="display: flex; gap: 10px; flex-wrap: wrap;">'
+
+        foto_admin_fields = [
+            obj.foto_aset, 
+            getattr(obj, 'foto_aset_2', None),
+            getattr(obj, 'foto_aset_3', None),
+            getattr(obj, 'foto_aset_4', None),
+            getattr(obj, 'foto_aset_5', None)
+        ]
+        
+        for idx, foto in enumerate(foto_admin_fields, start=1):
+            if foto:
+                found_any = True
+                html_output += format_html(
+                    '<div style="text-align:center;">'
+                    '<img src="{}" style="height: 120px; border-radius: 8px; border: 2px solid #417690;"/>'
+                    '<br/><small style="color:#417690; font-weight:bold;">Upload Admin {}</small></div>',
+                    foto.url, idx
+                )
         
         if obj.foto_aset:
              html_output += format_html(
@@ -590,28 +717,23 @@ class DetailLayananInline(nested_admin.NestedStackedInline):
             'fields': (
                 ('kode_aset', 'nama_aset_manual'), 
                 'surveyor',
-                'foto_aset',
                 ('luas_areal', 'poligon_layanan'), 
+                'foto_aset', 'foto_aset_2', 'foto_aset_3', 'foto_aset_4', 'foto_aset_5',
                 'display_foto_galeri'
             )
         }),
-        # ('Kondisi Pintu (Multi-Pintu)', {
-        #     'description': 'Jika jumlah pintu > 1, maka otomatis dianggap sebagai bangunan pengatur/bagi.',
-        #     'fields': (
-        #         'jenis_pintu',
-        #         ('pintu_baik', 'pintu_rusak_ringan', 'pintu_rusak_berat'),
-        #         'pintu_total_unit' # Otomatis jumlah dari 3 field di atas
-        #     )
-        # }),
         ('Data Percabangan & Kelanjutan', {
             'fields': (
+                # KEMBALI KE 3 KOTAK PER BARIS
+                ('jenis_saluran_kiri', 'saluran_manual_kiri', 'nomenklatur_kiri', 'luas_kiri'),
+                ('jenis_saluran_tengah', 'saluran_manual_tengah', 'nomenklatur_tengah', 'luas_tengah'),
+                ('jenis_saluran_kanan', 'saluran_manual_kanan', 'nomenklatur_kanan', 'luas_kanan'),
                 ('jumlah_cabang_sekunder', 'jumlah_cabang_tersier'),
                 'is_saluran_berlanjut',
             ),
-            'description': 'Informasi teknis koneksi jaringan di titik bangunan ini.'
+            'description': 'Tentukan jenis saluran, nama, dan luas layanan untuk masing-masing sisi.'
         }),
         ('Data Teknis Lainnya', {
-            'classes': ('collapse',),
             'fields': (
                 ('lebar_saluran', 'tinggi_saluran'),
                 ('latitude', 'longitude'),
@@ -661,7 +783,7 @@ class BangunanForm(forms.ModelForm):
 
 @admin.register(Bangunan)
 class BangunanAdmin(nested_admin.NestedModelAdmin):
-
+    list_per_page = 10
     list_display = ('nomenklatur_ruas', 'jenis_bangunan', 'daerah_irigasi', 'saluran')
     list_filter = ('jenis_bangunan', 'daerah_irigasi')
     search_fields = ('nomenklatur_ruas',)
@@ -891,7 +1013,7 @@ class LayerPendukungAdmin(admin.ModelAdmin):
         import zipfile
         import xml.etree.ElementTree as ET
         import json
-        from django.contrib.gis.geos import Polygon, MultiPolygon, GEOSGeometry
+        from django.contrib.gis.geos import Polygon, MultiPolygon
         from django.shortcuts import render
         from django.http import HttpResponseRedirect
         from django.core.files.base import ContentFile
@@ -900,7 +1022,7 @@ class LayerPendukungAdmin(admin.ModelAdmin):
         obj = self.get_object(request, object_id)
         features_found = []
 
-        # --- LANGKAH 1: EKSTRAKSI DATA ---
+        # --- LANGKAH 1: EKSTRAKSI & AUTO-MERGE DATA ---
         if obj.file_geojson and obj.file_geojson.name.lower().endswith('.kmz'):
             try:
                 with zipfile.ZipFile(obj.file_geojson.path, 'r') as zf:
@@ -909,52 +1031,43 @@ class LayerPendukungAdmin(admin.ModelAdmin):
                     root = ET.fromstring(content)
                     ns = {'kml': 'http://www.opengis.net/kml/2.2'}
                     
-                    for idx, pm in enumerate(root.findall('.//kml:Placemark', ns)):
-                        name_node = pm.find('kml:name', ns)
-                        pure_name = name_node.text if name_node is not None else f"Objek {idx}"
-                        
-                        obj_id_info = ""
-                        attr_data = {'luas_fung': 0, 'shape_leng': 0, 'shape_area': 0}
-
+                    all_coords_list = []
+                    attr_data = {'luas_fung': 0, 'shape_leng': 0, 'shape_area': 0}
+                    
+                    # Sisir SELURUH Placemark di dalam file KMZ
+                    for pm in root.findall('.//kml:Placemark', ns):
+                        # Ambil atribut (opsional, jika ada di Google Earth)
                         extended_data = pm.find('.//kml:ExtendedData', ns)
                         if extended_data is not None:
-                            simple_data = extended_data.findall('.//kml:SimpleData', ns)
-                            for sd in simple_data:
+                            for sd in extended_data.findall('.//kml:SimpleData', ns):
                                 attr_name = sd.get('name', '')
                                 val = sd.text if sd.text else "0"
+                                if attr_name == 'Luas_Fung': attr_data['luas_fung'] = float(val)
+                                elif attr_name == 'Shape_Leng': attr_data['shape_leng'] = float(val)
+                                elif attr_name == 'Shape_Area': attr_data['shape_area'] = float(val)
 
-                                if attr_name.upper() in ['OBJECTID', 'ID', 'NAMA_DI', 'NM_INF']:
-                                    if attr_name.upper() in ['OBJECTID', 'ID']:
-                                        obj_id_info = f" [{val}]"
-                                    if attr_name.upper() in ['NAMA_DI', 'NM_INF']:
-                                        pure_name = val
-
-                                if attr_name == 'Luas_Fung':
-                                    attr_data['luas_fung'] = float(val)
-                                elif attr_name == 'Shape_Leng':
-                                    attr_data['shape_leng'] = float(val)
-                                elif attr_name == 'Shape_Area':
-                                    attr_data['shape_area'] = float(val)
-
-                        display_name = f"{pure_name}{obj_id_info}"
-                        poly_node = pm.find('.//kml:Polygon', ns)
-                        if poly_node is not None:
+                        # Ambil SEMUA titik koordinat dari SEMUA poligon
+                        for poly_node in pm.findall('.//kml:Polygon', ns):
                             coord_node = poly_node.find('.//kml:coordinates', ns)
                             if coord_node is not None:
-                                features_found.append({
-                                    'id': len(features_found),
-                                    'name': display_name,
-                                    'pure_name': pure_name,
-                                    'coords': coord_node.text.strip(),
-                                    'metadata': attr_data
-                                })
+                                all_coords_list.append(coord_node.text.strip())
+                    
+                    # Gabungkan menjadi SATU fitur saja untuk dipilih di Admin
+                    if all_coords_list:
+                        features_found.append({
+                            'id': 0,
+                            'name': f"Gabungan Seluruh Poligon ({len(all_coords_list)} potongan area)",
+                            'pure_name': obj.nama, # Gunakan nama dari Admin (misal: BTkl. 4)
+                            'coords_list': all_coords_list,
+                            'metadata': attr_data
+                        })
             except Exception as e:
                 self.message_user(request, f"Gagal membaca file KMZ: {e}", level='ERROR')
 
-        # --- LANGKAH 2: PROSES PENYIMPANAN ---
+        # --- LANGKAH 2: PROSES PENYIMPANAN MENJADI 1 MULTIPOLYGON ---
         if request.method == 'POST':
             selected_indices = request.POST.getlist('selected_features')
-            geojson_features = [] # List untuk menampung fitur-fitur pilihan
+            geojson_features = []
             
             try:
                 for idx_str in selected_indices:
@@ -963,51 +1076,49 @@ class LayerPendukungAdmin(admin.ModelAdmin):
                         feature = features_found[idx]
                         m = feature['metadata']
 
-                        # 1. Update Luas ke Daerah Irigasi
-                        DaerahIrigasi.objects.filter(nama_di__icontains=feature['pure_name'].strip()).update(
-                            luas_baku_onemap=m['luas_fung'],
-                            luas_fungsional=m['luas_fung']
-                        )
-                        
-                        # 2. Parsing Geometri
-                        points = []
-                        coords_parts = feature['coords'].split()
-                        for p in coords_parts:
-                            c = p.split(',')
-                            if len(c) >= 2:
-                                points.append((float(c[0]), float(c[1])))
-                        
-                        if len(points) >= 3:
-                            if points[0] != points[-1]: points.append(points[0])
+                        # Susun semua koordinat menjadi bentuk Poligon Django
+                        polygons = []
+                        for coord_string in feature['coords_list']:
+                            points = []
+                            coords_parts = coord_string.split()
+                            for p in coords_parts:
+                                c = p.split(',')
+                                if len(c) >= 2:
+                                    points.append((float(c[0]), float(c[1])))
                             
-                            poly = Polygon(points)
-                            if not poly.valid: poly = poly.buffer(0)
+                            if len(points) >= 3:
+                                if points[0] != points[-1]: points.append(points[0])
+                                poly = Polygon(points)
+                                if not poly.valid: poly = poly.buffer(0)
+                                polygons.append(poly)
+                        
+                        # Gabungkan semua Poligon jadi MultiPolygon
+                        if polygons:
+                            multi_poly = MultiPolygon(polygons)
                             
-                            # 3. Masukkan ke list fitur GeoJSON dengan Properti Lengkap
-                            if isinstance(poly, Polygon):
-                                geojson_features.append({
-                                    "type": "Feature",
-                                    "geometry": json.loads(poly.json),
-                                    "properties": {
-                                        "nama": feature['pure_name'],
-                                        "luas_fungsional": m['luas_fung'],
-                                        "shape_leng": m['shape_leng'],
-                                        "shape_area": m['shape_area']
-                                    }
-                                })
+                            # Simpan sebagai 1 objek GeoJSON utuh
+                            geojson_features.append({
+                                "type": "Feature",
+                                "geometry": json.loads(multi_poly.json),
+                                "properties": {
+                                    "nama_di": feature['pure_name'], 
+                                    "nama": feature['pure_name'],
+                                    "luas_fungsional": m['luas_fung'],
+                                    "shape_leng": m['shape_leng'],
+                                    "shape_area": m['shape_area']
+                                }
+                            })
 
                 if geojson_features:
-                    # Buat objek GeoJSON utuh
                     geojson_content = {
                         "type": "FeatureCollection",
                         "features": geojson_features
                     }
                     
-                    # Simpan sebagai file baru
                     new_filename = obj.file_geojson.name.replace('.kmz', '_selected.json')
                     obj.file_geojson.save(new_filename, ContentFile(json.dumps(geojson_content)))
                     
-                    self.message_user(request, f"Sukses! {len(geojson_features)} poligon disimpan dengan atribut lengkap.")
+                    self.message_user(request, f"Sukses! {len(polygons)} potongan area digabungkan menjadi 1 kesatuan.")
                     return HttpResponseRedirect("../change/")
 
             except Exception as e:
@@ -1018,6 +1129,8 @@ class LayerPendukungAdmin(admin.ModelAdmin):
             'features': features_found,
             'opts': self.model._meta,
         })
+    
+
 
 
 
@@ -1058,7 +1171,7 @@ class LayerPendukungAdmin(admin.ModelAdmin):
 
 class RuasIksiInline(admin.TabularInline):
     model = RuasIksiSaluran
-    extra = 1 # Bapak bisa tambah baris ruas sebanyak kebutuhan
+    # extra = 1 # Bapak bisa tambah baris ruas sebanyak kebutuhan
     fields = ('kode_item', 'nama_ruas_item', 'nilai_kondisi', 'bobot_pengaruh', 'nilai_akhir', 'foto_kondisi')
 
 @admin.register(LaporanIksiSaluran)
@@ -1067,3 +1180,17 @@ class LaporanIksiSaluranAdmin(admin.ModelAdmin):
     search_fields = ('saluran__nama_saluran',)
     inlines = [RuasIksiInline]
 
+
+# Sembunyikan Sites
+admin.site.unregister(Site)
+
+# Sembunyikan Social Accounts (django-allauth)
+admin.site.unregister(SocialAccount)
+admin.site.unregister(SocialApp)
+admin.site.unregister(SocialToken)
+
+# Sembunyikan Auth Token (Django Rest Framework)
+admin.site.unregister(TokenProxy)
+
+# Jika ingin sembunyikan Groups (di bawah Authentication and Authorization)
+admin.site.unregister(Group)

@@ -21,13 +21,16 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from apps import views as apps_views
 
+admin.site.site_header = "Admin Panel SIRIGASI"      
+admin.site.site_title = "Admin Panel DINAS PEKERJAAN UMUM DAN PENATAAN RUANG KABUPATEN CIREBON"           
+admin.site.index_title = "Selamat Datang di Sistem Informasi Kinerja Jaringan Irigasi"
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Login/Logout/Auth
-    path('accounts/', include('allauth.urls')),
-    path('accounts/login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    # # Login/Logout/Auth
+    path('accounts/', include('django.contrib.auth.urls')),
+    # path('accounts/login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
 
     # API Auth (untuk login via API jika perlu)

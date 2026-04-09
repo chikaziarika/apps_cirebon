@@ -1,0 +1,27 @@
+/* Efek saat card statistik dipilih */
+.card-stats {
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Animasi membal/spring */
+}
+
+.card-stats.card-active {
+    transform: translateY(-12px) scale(1.05); /* Naik lebih tinggi & membesar sedikit */
+    z-index: 10;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Tambahkan aksen garis bawah emas agar lebih premium */
+.card-stats.card-active::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid; /* Warna akan mengikuti warna border-top */
+}
+
+.card-stats.bg-primary.card-active::after { border-top-color: var(--bs-primary); }
+.card-stats.bg-success.card-active::after { border-top-color: var(--bs-success); }
+.card-stats.bg-info.card-active::after { border-top-color: var(--bs-info); }
+.card-stats.bg-warning.card-active::after { border-top-color: var(--bs-warning); }

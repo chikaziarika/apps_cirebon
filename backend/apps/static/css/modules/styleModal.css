@@ -1,0 +1,36 @@
+/* Container utama galeri di dalam TD */
+.sal-gallery-container {
+    display: flex;
+    flex-wrap: nowrap; /* Memaksa foto tetap satu baris ke kanan */
+    overflow-x: auto;  /* Aktifkan scroll horizontal */
+    overflow-y: hidden;
+    gap: 10px;
+    padding: 5px 0 15px 0;
+    width: 100%;       /* Mengikuti lebar TD */
+    max-width: 650px;  /* Sesuaikan dengan perkiraan lebar kolom modal Anda */
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Item foto agar ukurannya konsisten */
+.sal-gallery-item {
+    flex: 0 0 150px;   /* Foto tidak akan mengecil, lebar tetap 150px */
+    height: 100px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+
+.sal-gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Mempercantik scrollbar agar tipis di dalam sel */
+.sal-gallery-container::-webkit-scrollbar {
+    height: 5px;
+}
+.sal-gallery-container::-webkit-scrollbar-thumb {
+    background: #00cfdd;
+    border-radius: 10px;
+}

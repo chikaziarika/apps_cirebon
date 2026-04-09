@@ -1,0 +1,21 @@
+.sticky-header {
+    height: auto; /* Mengikuti konten tapi tetap dibatasi */
+    min-height: 70px;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+
+/* Memastikan teks dinas tidak pecah jika layar laptop Axioo Anda dalam mode split screen */
+@media (max-width: 768px) {
+    .sticky-header h6 {
+        font-size: 0.75rem !important;
+    }
+    .sticky-header p {
+        font-size: 0.65rem !important;
+    }
+}
+
+/* Efek shadow halus agar header terlihat terpisah dari konten */
+.sticky-header {
+    box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+}

@@ -13,6 +13,9 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -198,6 +201,7 @@ STATICFILES_FINDERS = [
 STATIC_URL = 'static/'
 
 import os
+from pathlib import Path
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -219,17 +223,21 @@ CHANNEL_LAYERS = {
 import os
 
 # Update this path to match where OSGeo4W installed GDAL
-OSGEO4W_ROOT = r'C:\OSGeo4W'
+# OSGEO4W_ROOT = r'C:\OSGeo4W'
+OSGEO4W_ROOT = r'C:\Users\Axioo\AppData\Local\Programs\OSGeo4W'
 os.environ['PATH'] = os.path.join(OSGEO4W_ROOT, 'bin') + ';' + os.environ['PATH']
 
 # Point Django directly to the GDAL and GEOS DLLs
-GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal309.dll') # Change 'gdal309' to your version
+# GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal309.dll') # Change 'gdal309' to your version
+GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal12.dll') # Change 'gdal309' to your version
 GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'geos_c.dll')
 
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.18.30:3000",
+    
 
 ]
 
@@ -244,7 +252,7 @@ ALLOWED_HOSTS = [
 if os.name == 'nt':
     # List possible installation paths
     possible_roots = [
-        r'C:\Users\Jelita\AppData\Local\Programs\OSGeo4W', # Your path
+        r'C:\Users\Axioo\AppData\Local\Programs\OSGeo4W', # Your path
         r'C:\OSGeo4W',                                     # Default path
     ]
     
@@ -267,9 +275,11 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'apps/static'),
 ]
 
-LOGIN_REDIRECT_URL = 'dashboard'
-LOGOUT_REDIRECT_URL = 'dashboard'
-LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
+ACCOUNT_LOGIN_ON_GET = True
+LOGIN_URL = '/'
 
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_ADAPTER = 'allauth.socialaccount.adapter.DefaultSocialAccountAdapter'
@@ -294,12 +304,22 @@ SIMPLE_JWT = {
 
 CSRF_TRUSTED_ORIGINS = [
     'https://api.pentasconstruction.com',
+    'http://192.168.18.30:8000',  # <-- Tambahkan ini
+    'http://127.0.0.1:8000',      # <-- Opsional: Tambahkan ini juga untuk jaga-jaga
+    'http://localhost:8000',
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SESSION_COOKIE_SECURE = True
+
+if DEBUG:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+else:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
 LEAFLET_CONFIG = {
     'DEFAULT_CENTER': (-6.826, 108.604),
@@ -318,3 +338,11 @@ LEAFLET_CONFIG = {
         'forms': {'auto-include': True}, # Ini otomatis mengaktifkan fitur Draw/Edit bawaan
     }
 }
+
+# settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER') 
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')

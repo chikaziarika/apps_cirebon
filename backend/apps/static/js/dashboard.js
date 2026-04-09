@@ -16,7 +16,7 @@ let chartSebaranRankingObj = null;
 // Modal & Map Instances
 let modalPieInstance = null;
 let modalBarInstance = null;
-let detailMap = null;    
+// let detailMap = null;    
 let mapKeseluruhan = null;  
 let diLayers = {};
 let diDataMap = {};
@@ -25,10 +25,80 @@ let currentView = 'permen';
 // DataTable Instance (GLOBAL AGAR BISA DIAKSES EVENT LISTENER)
 var tableBangunanInstance = null;
 
+window.panelDataOriginal = { primer: [], sekunder: [], tersier: [], bangunan: [] };
+window.panelDataFiltered = { primer: [], sekunder: [], tersier: [], bangunan: [] };
+window.panelPage = { primer: 1, sekunder: 1, tersier: 1, bangunan: 1 };
+window.dictLayerSaluran = {}; 
+window.dictLayerBangunan = {}; 
+window.currentActiveSegments = null;
+window.currentActiveSaluranId = null;
+
+window.renderPanelList = function(kategori) {
+    const items = window.panelDataFiltered[kategori] || [];
+    const page = window.panelPage[kategori] || 1;
+    const perPage = 5; 
+    const totalPages = Math.ceil(items.length / perPage) || 1;
+
+    // 1. Jika data kosong, langsung tampilkan teks & hentikan proses
+    if (items.length === 0) {
+        $(`#list-map-${kategori}`).html(`<div class="p-3 text-center text-muted small" style="margin-top: 2rem;"><i>Data tidak ditemukan</i></div>`);
+        $(`#pag-${kategori}`).html(''); 
+        return; // Mencegah error lanjutan
+    }
+
+    // 2. Jika ada data, potong sesuai halaman
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    const sliced = items.slice(start, end);
+
+    let htmlList = sliced.map(item => item.html).join('');
+    $(`#list-map-${kategori}`).html(htmlList);
+
+    let pagHtml = `
+        <div style="font-size:9px;">Total: <b>${items.length}</b></div>
+        <div>
+            <button class="pagination-btn" onclick="window.gantiPagePanel('${kategori}', -1)" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="mx-1 fw-bold">Hal ${page}/${totalPages}</span>
+            <button class="pagination-btn" onclick="window.gantiPagePanel('${kategori}', 1)" ${page >= totalPages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+    `;
+    $(`#pag-${kategori}`).html(pagHtml);
+};
+
+window.gantiPagePanel = function(kategori, arah) {
+    window.panelPage[kategori] += arah;
+    window.renderPanelList(kategori);
+};
+
+window.activeBlinkPolygon = null;
+window.activeBlinkMarker = null;
+
+// Fungsi untuk mematikan semua kedipan
+// ==========================================
+// 1. FUNGSI MATIKAN KEDIPAN (UPDATE)
+// ==========================================
+function matikanSemuaKedipan() {
+    // Reset Poligon
+    if (window.activeBlinkPolygon) {
+        const domPath = window.activeBlinkPolygon.getElement();
+        if (domPath) {
+            domPath.classList.remove('polygon-blink');
+        }
+        window.activeBlinkPolygon = null;
+    }
+    // Reset Marker
+    if (window.activeBlinkMarker) {
+        if (window.activeBlinkMarker._icon) {
+            window.activeBlinkMarker._icon.classList.remove('marker-blink');
+        }
+        window.activeBlinkMarker = null;
+    }
+}
+
 
 
 function hideAllDetails() {
-    $("#view-ringkasan, #view-drilldown, #view-detail-luas, #view-detail-distribusi, #view-detail-sebaran, #view-detail-di").hide();
+    $("#view-ringkasan, #view-drilldown, #view-detail-luas, #view-detail-distribusi, #view-detail-sebaran, #view-detail-di, #section-list-saluran").hide();
 }
 
 /**
@@ -225,15 +295,67 @@ function renderDashboardFlowchart() {
     }
 }
 
+function initAllTooltips() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        // Hapus instance lama agar tidak double
+        var oldTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+        if (oldTooltip) oldTooltip.dispose();
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+// Tambahkan juga pada saat DataTable berpindah halaman
+$('#table-saluran-master').on('draw.dt', function() {
+    initAllTooltips();
+});
+
 
 function showDrillDownSebaran() {
-    $("#main-content").css("overflow", "hidden");
-    gsap.to(".container-fluid", { duration: 0.2, opacity: 0, onComplete: () => {
-        hideAllDetails();
-        $("#view-detail-sebaran").css({"display": "block", "opacity": 1}).show();
-        gsap.to(".container-fluid", { duration: 0.3, opacity: 1 });
-        renderRankingSebaran();
-    }});
+    // 1. Kunci scroll
+    $("#main-content").css("overflow", "hidden"); 
+    
+    // 2. Animasi keluar container lama
+    gsap.to(".container-fluid", { 
+        duration: 0.3, 
+        opacity: 0, 
+        y: -10, // Tambah efek gerak dikit biar keren
+        ease: "power2.inOut",
+        onComplete: () => {
+            // 3. Sembunyikan semua section lain
+            hideAllDetails(); 
+            
+            // 4. Siapkan section target
+            const $target = $("#section-list-saluran");
+            $target.css({ "display": "block", "opacity": 0 }); 
+
+            const $analisisSebaran = $("#view-detail-sebaran");
+            $analisisSebaran.show().css({ "opacity": 1, "display": "block" });
+
+            // 5. Animasi masuk kembali
+            gsap.to(".container-fluid", { 
+                duration: 0.4, 
+                opacity: 1, 
+                y: 0,
+                ease: "power2.out",
+                onComplete: () => {
+                    // 6. Paksa opacity target ke 1 (Jaga-jaga jika tertahan di 0)
+                    $target.animate({ opacity: 1 }, 200);
+
+                    // 7. Refresh DataTable & Charts
+                    if ($.fn.DataTable.isDataTable('#table-saluran-master')) {
+                        $('#table-saluran-master').DataTable().columns.adjust().draw();
+                    }
+                    
+                    // PANGGIL ULANG fungsi render chart sebaran jika ada
+                    if (typeof renderKeandalanChart === "function") {
+                        // Pastikan data tersedia atau panggil fungsi render yang ada di script kamu
+                        // renderKeandalanChart(); 
+                    }
+                }
+            });
+        }
+    });
 }
 
 // =========================================================
@@ -298,14 +420,10 @@ $(document).ready(function() {
         if (targetId === 'modal-saluran-tab') {
             if(diId) loadSaluranTable(diId);
         }
-        // 4. Tab Bangunan (Di dalam Modal)
         if (targetId === 'modal-bangunan-tab') {
-            // Cek apakah ada filter titipan
             if (window.currentFilterSaluran) {
                 loadBangunanTable(diId, window.currentFilterId, window.currentFilterSaluran);
             } else {
-                // Load default jika tabel belum ada atau kosong
-                // ATAU jika DataTable sudah ada, paksa adjust column biar gak berantakan
                 if (!$.fn.DataTable.isDataTable('#tabelBangunan')) {
                     loadBangunanTable(diId);
                 } else {
@@ -462,19 +580,174 @@ function renderSubDetailCharts() {
     chartObjS = createChart('chartDetailSekunder', window.dataSekunder, 'Kondisi Jaringan Sekunder');
 }
 
+// function renderChartsDetailLuas() {
+//     const labels = []; const dataBaku = []; const dataFungsional = [];
+//     window.dataIrigasiFull.slice(0, 10).forEach(di => { labels.push(di.nama_di); dataBaku.push(di.luas_baku_permen); dataFungsional.push(di.luas_fungsional); });
+//     if (chartDetailLuasBarObj) chartDetailLuasBarObj.destroy();
+//     chartDetailLuasBarObj = new Chart(document.getElementById('chartDetailLuasBar').getContext('2d'), {
+//         type: 'bar', data: { labels: labels, datasets: [{ label: 'Luas Baku', data: dataBaku, backgroundColor: '#6c757d' }, { label: 'Luas Fungsional', data: dataFungsional, backgroundColor: '#198754' }] },
+//         options: { responsive: true, maintainAspectRatio: false }
+//     });
+//     if (chartDetailLuasPieObj) chartDetailLuasPieObj.destroy();
+//     chartDetailLuasPieObj = new Chart(document.getElementById('chartDetailLuasPie').getContext('2d'), {
+//         type: 'pie', data: { labels: ['Terairi', 'Belum Terairi'], datasets: [{ data: [window.dataLuas.fungsional, window.dataLuas.baku_permen - window.dataLuas.fungsional], backgroundColor: ['#198754', '#e9ecef'] }] },
+//         options: { maintainAspectRatio: false }
+//     });
+// }
+
+let currentFilterLuas = 'top10_rendah'; // Default
+
+// Fungsi yang dipanggil saat dropdown berubah
+function applyLuasFilter(mode) {
+    currentFilterLuas = mode;
+    renderChartsDetailLuas(); // Gambar ulang chart dengan data baru
+}
+
+// Fungsi untuk mode Layar Penuh (Fullscreen)
+function toggleFullScreen(elementId) {
+    const elem = document.getElementById(elementId);
+    if (!document.fullscreenElement) {
+        elem.requestFullscreen().catch(err => {
+            alert(`Error: Tidak bisa fullscreen. ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// --- FUNGSI UTAMA PENGGAMBARAN CHART ---
 function renderChartsDetailLuas() {
-    const labels = []; const dataBaku = []; const dataFungsional = [];
-    window.dataIrigasiFull.slice(0, 10).forEach(di => { labels.push(di.nama_di); dataBaku.push(di.luas_baku_permen); dataFungsional.push(di.luas_fungsional); });
-    if (chartDetailLuasBarObj) chartDetailLuasBarObj.destroy();
-    chartDetailLuasBarObj = new Chart(document.getElementById('chartDetailLuasBar').getContext('2d'), {
-        type: 'bar', data: { labels: labels, datasets: [{ label: 'Luas Baku', data: dataBaku, backgroundColor: '#6c757d' }, { label: 'Luas Fungsional', data: dataFungsional, backgroundColor: '#198754' }] },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-    if (chartDetailLuasPieObj) chartDetailLuasPieObj.destroy();
-    chartDetailLuasPieObj = new Chart(document.getElementById('chartDetailLuasPie').getContext('2d'), {
-        type: 'pie', data: { labels: ['Terairi', 'Belum Terairi'], datasets: [{ data: [window.dataLuas.fungsional, window.dataLuas.baku_permen - window.dataLuas.fungsional], backgroundColor: ['#198754', '#e9ecef'] }] },
-        options: { maintainAspectRatio: false }
-    });
+    // KITA GANTI window.dataIrigasiFull DENGAN FETCH API LANGSUNG
+    fetch('/api/daerah-irigasi/')
+        .then(res => res.json())
+        .then(response => {
+            // Antisipasi format respons dari DRF
+            let dataApi = Array.isArray(response) ? response : response.data;
+            if (!dataApi || dataApi.length === 0) return;
+
+            const labels = []; 
+            const dataBatasMaksimal = []; 
+            const dataFungsional = [];
+
+            // 1. Data untuk Bar Chart
+            let chartData = [...dataApi];
+            chartData.sort((a, b) => {
+                let persenA = a.luas_baku_permen > 0 ? (a.luas_fungsional / a.luas_baku_permen) : 0;
+                let persenB = b.luas_baku_permen > 0 ? (b.luas_fungsional / b.luas_baku_permen) : 0;
+                return persenA - persenB;
+            });
+
+            // Pastikan currentFilterLuas terdefinisi agar tidak error
+            if (typeof currentFilterLuas !== 'undefined' && currentFilterLuas === 'top10_rendah') {
+                chartData = chartData.slice(0, 10);
+            }
+
+            chartData.forEach(di => { 
+                labels.push(di.nama_di); 
+                dataBatasMaksimal.push(parseFloat(di.luas_baku_permen) || 0); 
+                dataFungsional.push(parseFloat(di.luas_fungsional) || 0); 
+            });
+
+            // Render Bar Chart
+            const ctxBar = document.getElementById('chartDetailLuasBar');
+            if (ctxBar) {
+                if (window.chartDetailLuasBarObj) window.chartDetailLuasBarObj.destroy();
+                window.chartDetailLuasBarObj = new Chart(ctxBar.getContext('2d'), {
+                    data: { 
+                        labels: labels, 
+                        datasets: [
+                            { 
+                                type: 'line', label: 'Luas Baku (Target Maksimal)', 
+                                data: dataBatasMaksimal, borderColor: '#e74a3b', backgroundColor: '#e74a3b',
+                                borderWidth: 2, borderDash: [5, 5], pointRadius: 4, fill: false, order: 1,
+                                datalabels: { align: 'end', anchor: 'end', offset: 6, color: '#e74a3b', font: { weight: 'bold', size: 11 } }
+                            },
+                            { 
+                                type: 'bar', label: 'Luas Fungsional (Realisasi)', 
+                                data: dataFungsional, backgroundColor: '#1cc88a', borderRadius: 4, order: 2,
+                                datalabels: { align: 'center', anchor: 'center', color: '#ffffff', font: { weight: 'bold', size: 11 } }
+                            }
+                        ] 
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+                });
+            }
+
+            // ==============================================================
+            // 2. CHART PIE PROPORSI AREA (PERMEN PU & ONEMAP) MENGGUNAKAN API
+            // ==============================================================
+            
+            function createLuasPieChart(canvasId, totalFungsional, totalBaku, tipeBaku) {
+                const ctxPie = document.getElementById(canvasId);
+                if (!ctxPie) return null;
+
+                let belumTerairi = Math.max(0, totalBaku - totalFungsional);
+                let dataPie = [totalFungsional, belumTerairi];
+
+                return new Chart(ctxPie.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: ['Terairi (Fungsional)', 'Belum Terairi/Hilang'],
+                        datasets: [{
+                            data: dataPie,
+                            backgroundColor: ['#1cc88a', '#e9ecef'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let valStr = context.raw.toLocaleString('id-ID');
+                                        let fungsionalStr = totalFungsional.toLocaleString('id-ID');
+                                        let bakuStr = totalBaku.toLocaleString('id-ID');
+                                        let pct = totalBaku > 0 ? ((context.raw / totalBaku) * 100).toFixed(1) : 0;
+                                        
+                                        if (context.dataIndex === 0) { // Hover Hijau
+                                            return ` Luas Fungsional: ${fungsionalStr} Ha | Berdasarkan ${tipeBaku}: ${bakuStr} Ha (${pct}%)`;
+                                        } else { // Hover Abu-abu
+                                            return ` Belum Terairi: ${valStr} Ha | Berdasarkan ${tipeBaku}: ${bakuStr} Ha (${pct}%)`;
+                                        }
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                color: (context) => context.dataIndex === 0 ? '#fff' : '#6c757d', 
+                                font: { weight: 'bold', size: 12 },
+                                formatter: (value, ctx) => {
+                                    if (value === 0 || totalBaku === 0) return '';
+                                    return (value * 100 / totalBaku).toFixed(1) + "%";
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hitung Ulang Total Berdasarkan Data Segar dari API
+            let globalFungsional = 0;
+            let globalBakuPermen = 0;
+            let globalBakuOnemap = 0;
+
+            dataApi.forEach(di => {
+                globalFungsional += parseFloat(di.luas_fungsional) || 0;
+                globalBakuPermen += parseFloat(di.luas_baku_permen) || 0;
+                globalBakuOnemap += parseFloat(di.luas_baku_onemap) || 0;
+            });
+
+            // Hancurkan chart lama jika ada
+            if (window.chartLuasPiePermenObj) window.chartLuasPiePermenObj.destroy();
+            if (window.chartLuasPieOneMapObj) window.chartLuasPieOneMapObj.destroy();
+
+            // Render Chart Pie Baru
+            window.chartLuasPiePermenObj = createLuasPieChart('chartDetailLuasPiePermen', globalFungsional, globalBakuPermen, "Permen PU");
+            window.chartLuasPieOneMapObj = createLuasPieChart('chartDetailLuasPieOneMap', globalFungsional, globalBakuOnemap, "OneMap");
+            
+        })
+        .catch(err => console.error("Gagal menarik data untuk Chart Bar & Pie:", err));
 }
 
 function renderChartGaugePintu() {
@@ -566,182 +839,15 @@ function renderRankingSebaran() {
     $('#tableRankingSebaran tbody').html(tableHtml);
 }
 
-    function initDetailMap(inputData) {
-        // 1. Reset Peta Lama
-        if (detailMap !== null) { 
-            detailMap.remove(); 
-            detailMap = null; 
-        }
-        
-        const mapContainer = document.getElementById('mapDetail');
-        if (!mapContainer) return;
 
-        // --- 2. TAMPILKAN PETA DASAR SEKARANG JUGA (ANTI-BLANK) ---
-        // Dipasang di awal agar basemap OSM langsung muncul tanpa syarat data
-        detailMap = L.map('mapDetail').setView([-6.826, 108.604], 14); 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(detailMap);
 
-        // Paksa refresh ukuran agar tidak putih saat modal/overlay terbuka
-        [100, 300, 700].forEach(delay => {
-            setTimeout(() => { if(detailMap) detailMap.invalidateSize(); }, delay);
-        });
 
-        // 3. Ambil ID Daerah Irigasi
-        let diId = (typeof inputData === 'object' && inputData !== null) ? $('#id_di_aktif').val() : inputData;
-
-        // 4. Proses Load Data (Hanya dijalankan jika ID tersedia)
-        if (diId) {
-            console.log(`📡 Memuat data detail ID: ${diId}`);
-
-            // --- PROSES 1: LOAD GARIS SALURAN ---
-            fetch(`/api/saluran/${diId}/`)
-                .then(res => res.json())
-                .then(response => {
-                    const daftarSaluran = response.data || [];
-                    if (daftarSaluran.length > 0) {
-                        let allLayers = [];
-                        daftarSaluran.forEach(saluran => {
-                            const geoData = saluran.geometry_data || saluran.geom;
-
-                            // VALIDASI: Hanya gambar jika GeoJSON benar-benar ada dan valid
-                            if (geoData && geoData !== "" && geoData !== "{}" && geoData !== null) {
-                                const layer = L.geoJson(geoData, {
-                                    style: { 
-                                        color: "#007bff", 
-                                        weight: 6, 
-                                        opacity: 0.9,
-                                        lineJoin: 'round',
-                                        lineCap: 'round'
-                                    }
-                                }).addTo(detailMap);
-                                
-                                layer.bindTooltip(`<b>${saluran.nama_saluran}</b>`, { sticky: true });
-                                layer.bindPopup(`<b>${saluran.nama_saluran}</b><br>Panjang: ${saluran.panjang_saluran || '-'} m`);
-
-                                layer.on('mouseover', function () { this.setStyle({ weight: 10, color: "#ffc107", opacity: 1 }); });
-                                layer.on('mouseout', function () { this.setStyle({ weight: 6, color: "#007bff", opacity: 0.9 }); });
-
-                                allLayers.push(layer);
-                            }
-                        });
-
-                        if (allLayers.length > 0) {
-                            const featureGroup = L.featureGroup(allLayers);
-                            detailMap.fitBounds(featureGroup.getBounds(), { padding: [40, 40] });
-                        }
-                    }
-                }).catch(err => console.error("❌ Gagal load saluran:", err));
-
-            // --- PROSES 2: LOAD MARKER BANGUNAN ---
-            fetch(`/api/bangunan/${diId}/`)
-                .then(res => res.json())
-                .then(response => {
-                    const daftarBangunan = response.data || [];
-                    daftarBangunan.forEach(b => {
-                        let rawLat = parseFloat(b.latitude);
-                        let rawLng = parseFloat(b.longitude);
-                        let fixLat = (Math.abs(rawLat) > 90) ? rawLng : rawLat;
-                        let fixLng = (Math.abs(rawLat) > 90) ? rawLat : rawLng;
-
-                        if (fixLat !== 0 && !isNaN(fixLat)) {
-                            var iconAset = L.icon({
-                                iconUrl: `/static/icons/${b.kode_aset || 'default'}.png`,
-                                iconSize: [30, 30],      // Ukuran icon di peta
-                                iconAnchor: [15, 15],    // Titik tengah icon
-                                popupAnchor: [0, -15]    // Posisi popup
-                            });
-
-                            // 2. PASANG MARKER DENGAN PARAMETER { icon: iconAset }
-                            const marker = L.marker([fixLat, fixLng], { icon: iconAset }).addTo(detailMap);
-                            marker.bindPopup(`
-                                <div style="width: 180px; font-family: sans-serif;">
-                                    <div style="background: #0d3b66; color: white; padding: 8px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
-                                        ${b.nomenklatur_ruas || b.nama_bangunan || "Bangunan"}
-                                    </div>
-                                    <table style="width: 100%; font-size: 11px;">
-                                        <tr><td>Saluran</td><td style="font-weight:bold; text-align:right;">${b.nama_saluran || "-"}</td></tr>
-                                        <tr><td>Luas</td><td style="font-weight:bold; text-align:right;">${b.luas_areal || 0} Ha</td></tr>
-                                    </table>
-                                    <hr style="margin: 8px 0;">
-                                    <a href="https://www.google.com/maps?q=${fixLat},${fixLng}" target="_blank" class="btn btn-primary btn-sm w-100 text-white" style="font-size: 10px;">
-                                        PETUNJUK ARAH
-                                    </a>
-                                </div>
-                            `);
-                        }
-                    });
-                }).catch(err => console.error("❌ Gagal load bangunan:", err));
-        }
-    }
-
-    function renderModalCharts(d) {
-    const labels = ['Baik', 'Rusak Ringan', 'Rusak Berat', 'BAP'];
-    const colors = ['#198754', '#ffc107', '#dc3545', '#6c757d'];
-
-    const configs = [
-        { 
-            id: 'chartPrimer', 
-            data: [d.primer_baik, d.primer_rr, d.primer_rb, d.primer_bap] 
-        },
-        { 
-            id: 'chartSekunder', 
-            data: [d.sekunder_baik, d.sekunder_rr, d.sekunder_rb, d.sekunder_bap] 
-        },
-        { 
-            id: 'chartPintu', 
-            data: [d.pintu_baik, d.pintu_rr, d.pintu_rb, 0] 
-        }
-    ];
-
-    configs.forEach(config => {
-        const canvas = document.getElementById(config.id);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-
-        if (window[config.id] instanceof Chart) {
-            window[config.id].destroy();
+    function initBangunanTable() {
+        if ($.fn.DataTable.isDataTable('#tabelBangunan')) {
+            $('#tabelBangunan').DataTable().destroy();
         }
 
-        const totalValue = config.data.reduce((a, b) => a + b, 0);
-
-        window[config.id] = new Chart(ctx, {
-            type: 'doughnut',
-            plugins: [ChartDataLabels], 
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: totalValue === 0 ? [1] : config.data,
-                    backgroundColor: totalValue === 0 ? ['#e9ecef'] : colors,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    datalabels: {
-                        display: totalValue > 0,
-                        color: '#fff',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (val) => ((val * 100) / totalValue).toFixed(1) + "%"
-                    },
-                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }
-                },
-                cutout: '65%'
-            }
-        });
-    });
-}
-
-
-        function initBangunanTable() {
-        if ($.fn.DataTable.isDataTable('#tableBangunan')) {
-            $('#tableBangunan').DataTable().destroy();
-        }
-
-        $('#tableBangunan').DataTable({
+        $('#tabelBangunan').DataTable({
             // Gunakan data dummy kamu yang sudah jalan
             data: [
                 ["B.Cw.1 (Dummy)", "Sadap", "Baik", -6.826, 108.603, "No Photo"]
@@ -757,7 +863,6 @@ function renderRankingSebaran() {
                 { 
                     title: "Koordinat",
                     render: (d, t, row) => {
-                        // row[3] adalah lat, row[4] adalah lon
                         return `<a href="javascript:void(0)" onclick="focusKePeta(${row[3]}, ${row[4]}, '${row[1]}')" class="text-primary fw-bold">
                                     <i class="fa-solid fa-location-dot"></i> ${row[3]}, ${row[4]}
                                 </a>`;
@@ -789,7 +894,7 @@ $(document).on("click", ".view-detail", function() {
         console.warn("Data JSON tidak ditemukan, menggunakan mapping manual...");
         d = {
             nama_di: el.data('nama') || "-",
-            sumber_air: el.data('sumber') || "-",
+            sumber_air: el.data('sumber_air') || "-",
             bendung: el.data('bendung') || "-",
             luas_baku_permen: el.data('permen') || 0,
             luas_baku_onemap: el.data('onemap') || 0,
@@ -805,6 +910,11 @@ $(document).on("click", ".view-detail", function() {
             sekunder_rr: parseFloat(el.data('s_rr')) || 0,
             sekunder_rb: parseFloat(el.data('s_rb')) || 0,
             sekunder_bap: parseFloat(el.data('s_napas')) || 0,
+
+            tersier_baik: parseFloat(el.data('t_baik')) || 0,
+            tersier_rr: parseFloat(el.data('t_rr')) || 0,
+            tersier_rb: parseFloat(el.data('t_rb')) || 0,
+            tersier_bap: parseFloat(el.data('t_bap')) || 0,
 
             // DATA PINTU
             pintu_baik: parseFloat(el.data('pt_baik')) || 0,
@@ -829,11 +939,19 @@ $(document).on("click", ".view-detail", function() {
     const pRB = parseFloat(d.pintu_rb) || 0;
     const totalSeluruhPintu = pBaik + pRR + pRB;
 
-    $('#countPrimer').text(d.panjang_primer.toLocaleString('id-ID') + ' m');
-    $('#countSekunder').text(d.panjang_sekunder.toLocaleString('id-ID') + ' m');
-    $('#countTotalSal').text((d.panjang_primer + d.panjang_sekunder).toLocaleString('id-ID') + ' m');
+    let pPrimer = parseFloat(d.panjang_primer) || 0;
+    let pSekunder = parseFloat(d.panjang_sekunder) || 0;
+    let pTersier = parseFloat(d.panjang_tersier) || 0;
+
+    let totalPanjang = pPrimer + pSekunder + pTersier;
+
+    $('#countPrimer').text(pPrimer.toLocaleString('id-ID') + ' m');
+    $('#countSekunder').text(pSekunder.toLocaleString('id-ID') + ' m');
+    $('#countTersier').text(pTersier.toLocaleString('id-ID') + ' m');
+    $('#countTotalSal').text(totalPanjang.toLocaleString('id-ID') + ' m');
     $('#countBangunan').text(d.jml_bangunan);
-    $('#countPintu').text(totalSeluruhPintu );
+    let jmlPintu = parseInt(d.jumlah_pintu) || parseInt(d.jml_pintu) || 0;
+    $('#countPintu').text(jmlPintu + ' Unit');
     $('#modalNama').text(d.nama_di || d.nama);
     $('#modalSumber').text(': ' + (d.sumber_air || d.sumber));
     $('#modalBendung').text(': ' + (d.bendung || d.bendung));
@@ -891,7 +1009,6 @@ $("#closeOverlay").on("click", function() { gsap.to("#detailOverlay", { duration
 
 
 
-// PINDAHKAN KE LUAR $(document).ready
 function focusKePeta(lat, lon, nama = "Lokasi Bangunan") {
     // 1. Pindah ke Tab Peta secara otomatis
     const tabEl = document.querySelector('#modal-map-tab');
@@ -903,62 +1020,19 @@ function focusKePeta(lat, lon, nama = "Lokasi Bangunan") {
     setTimeout(() => {
         if (detailMap) {
             detailMap.invalidateSize();
-            detailMap.setView([lat, lon], 18); // Zoom dekat
-            
-            // Tambahkan marker fokus
-            L.marker([lat, lon]).addTo(detailMap)
-                .bindPopup(`<b>${nama}</b>`)
-                .openPopup();
+            // Cukup terbang ke lokasi (flyTo) tanpa membuat marker baru yang dobel
+            detailMap.flyTo([lat, lon], 19, { animate: true, duration: 1.5 });
         }
     }, 400);
 }
 
-// Tambahkan ini di paling bawah dashboard.js untuk menangkap data marker saat modal dibuka
-function loadMarkerBangunan(diId) {
-    fetch(`/api/bangunan/${diId}/`)
-        .then(res => res.json())
-        .then(response => {
-            const data = response.data;
-            if (Array.isArray(data) && detailMap) {
-                data.forEach(item => {
-                    if (item.latitude && item.longitude) {
-                        L.marker([item.latitude, item.longitude])
-                            .addTo(detailMap)
-                            .bindPopup(`<b>${item.nama_bangunan}</b><br>${item.kondisi_aset}`);
-                    }
-                });
-            }
-        })
-        .catch(err => console.error("Gagal load marker:", err));
-}
-
-// function renderMarkerBangunan(diId) {
-//     if (!detailMap) return;
-//     fetch(`/api/bangunan/${diId}/`)
-//         .then(res => res.json())
-//         .then(response => {
-//             const data = response.data;
-//             if (Array.isArray(data)) {
-//                 $('#countBangunan').text(data.length + ' Unit');
-
-//                 data.forEach(item => {
-//                     if (item.latitude && item.longitude) {
-//                         L.marker([item.latitude, item.longitude]).addTo(detailMap)
-//                             .bindPopup(`<b>${item.nama_bangunan}</b><br>Kondisi: ${item.kondisi_aset}`);
-//                     }
-//                 });
-//             }
-//         });
-// }
 
 let layerBangunanGroup = L.featureGroup();
 let layerPendukungGroup = L.featureGroup();
 
-
 function initMapKeseluruhan() {
     console.log("🚩 1. Fungsi initMapKeseluruhan TERPANGGIL");
 
-       
     if (mapKeseluruhan !== null) { 
         mapKeseluruhan.invalidateSize(); 
         return; 
@@ -966,6 +1040,29 @@ function initMapKeseluruhan() {
     
     const titikTengah = [-6.7641, 108.4789];
     mapKeseluruhan = L.map('map-keseluruhan', { zoomControl: false }).setView(titikTengah, 13);
+
+    mapKeseluruhan.on('popupclose', function() {
+        if (typeof matikanSemuaKedipan === "function") matikanSemuaKedipan();
+    });
+    mapKeseluruhan.on('click', function() {
+        if (typeof matikanSemuaKedipan === "function") matikanSemuaKedipan();
+    });
+
+    mapKeseluruhan.createPane('paneWilayah');
+    mapKeseluruhan.getPane('paneWilayah').style.zIndex = 330;
+
+    mapKeseluruhan.createPane('paneLahan');
+    mapKeseluruhan.getPane('paneLahan').style.zIndex = 340;
+
+    mapKeseluruhan.createPane('panePendukung');
+    mapKeseluruhan.getPane('panePendukung').style.zIndex = 350;
+
+    mapKeseluruhan.createPane('paneSaluran');
+    mapKeseluruhan.getPane('paneSaluran').style.zIndex = 600;
+
+    mapKeseluruhan.createPane('paneBangunan');
+    mapKeseluruhan.getPane('paneBangunan').style.zIndex = 650;
+
     const baseMaps = {
         "Peta Dasar (Terang)": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
         "Peta Satelit": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
@@ -975,21 +1072,32 @@ function initMapKeseluruhan() {
         'wilayah': L.featureGroup(),
         'jalan': L.featureGroup(),
         'irigasi': L.featureGroup(),
-        'lahan': L.featureGroup(), // Ini untuk Luas Fungsional
+        'lahan': L.featureGroup(), 
         'air': L.featureGroup()
     };
 
     const overlayMaps = {
         "<i class='fa-solid fa-location-dot text-danger'></i> Aset Bangunan": layerBangunanGroup,
         "<i class='fa-solid fa-draw-polygon text-success'></i> Luas Fungsional": grupKategori['lahan'],
-        // "<i class='fa-solid fa-droplet text-primary'></i> Jaringan Irigasi": grupKategori['irigasi'],
         "<i class='fa-solid fa-road text-dark'></i> Jaringan Jalan": grupKategori['jalan'],
         "<i class='fa-solid fa-map text-secondary'></i> Batas Wilayah": grupKategori['wilayah'],
         "<i class='fa-solid fa-water text-info'></i> Sumber Air/Waduk": grupKategori['air']
     };
 
-
     L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(mapKeseluruhan);
+    if (L.control.browserPrint) {
+        L.control.browserPrint({
+            title: 'Cetak Laporan Peta',
+            printModesNames: { 
+                Portrait: 'Potrait', 
+                Landscape: 'Lanskap', 
+                Auto: 'Otomatis', 
+                Custom: 'Pilih Area' 
+            }
+        }).addTo(mapKeseluruhan);
+    } else {
+        console.error("Library Leaflet Browser Print belum terload sempurna!");
+    }
     L.control.zoom({ position: 'bottomright' }).addTo(mapKeseluruhan);
     
     Object.values(grupKategori).forEach(group => group.addTo(mapKeseluruhan));
@@ -1004,12 +1112,7 @@ function initMapKeseluruhan() {
             container.title = "Kembali ke Posisi Awal";
             
             container.onclick = function() {
-                // Gunakan flyTo agar ada animasi transisi halus
-                mapKeseluruhan.flyTo(titikTengah, zoomAwal, {
-                    duration: 1.5,
-                    easeLinearity: 0.25
-                });
-                // Reset filter select jika ada
+                mapKeseluruhan.flyTo(titikTengah, 13, { duration: 1.5, easeLinearity: 0.25 });
                 $('#filter-di').val("").trigger('change');
             };
             return container;
@@ -1027,9 +1130,7 @@ function initMapKeseluruhan() {
             container.onclick = function() {
                 const mapId = document.getElementById('map-keseluruhan');
                 if (!document.fullscreenElement) {
-                    mapId.requestFullscreen().catch(err => {
-                        alert(`Error attempting to enable full-screen mode: ${err.message}`);
-                    });
+                    mapId.requestFullscreen().catch(err => { alert(`Error: ${err.message}`); });
                     container.innerHTML = '<i class="fa-solid fa-compress"></i>';
                 } else {
                     document.exitFullscreen();
@@ -1041,139 +1142,415 @@ function initMapKeseluruhan() {
     });
     mapKeseluruhan.addControl(new fullscreenControl());
 
+    const ListAsetControl = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd: function() {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-map-panel');
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.disableScrollPropagation(container);
+
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center" id="btn-toggle-panel" style="cursor: pointer; padding-bottom: 4px; border-bottom: 1px solid #eee;">
+                    <h6 class="fw-bold mb-0 text-primary" style="font-size:0.85rem;">
+                        <i class="fa-solid fa-list me-1"></i> Data Aset Peta
+                    </h6>
+                    <i class="fa-solid fa-chevron-up text-secondary" id="icon-toggle-panel" style="transition: transform 0.3s ease;"></i>
+                </div>
+                
+                <div id="panel-aset-body" style="padding-top: 8px;">
+                    <input type="text" id="map-search-input" class="form-control form-control-sm mb-2" placeholder="Cari aset di sini...">
+                    
+                    <div class="row g-1 mb-2">
+                        <div class="col-6">
+                            <select id="map-filter-kondisi" class="form-select form-select-sm text-secondary" style="font-size: 0.7rem;">
+                                <option value="ALL">Semua Kondisi</option>
+                                <option value="BAIK">Kondisi: BAIK</option>
+                                <option value="RR">Kondisi: R. RINGAN</option>
+                                <option value="RB">Kondisi: R. BERAT</option>
+                                <option value="BAP">Kondisi: BAP</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <select id="map-sort-data" class="form-select form-select-sm text-secondary" style="font-size: 0.7rem;">
+                                <option value="DEFAULT">Urutkan Default</option>
+                                <option value="RB_FIRST">Paling Rusak Dulu</option>
+                                <option value="BAIK_FIRST">Paling Bagus Dulu</option>
+                                <option value="NAMA_ASC">Sesuai Abjad (A-Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <ul class="nav nav-pills nav-justified mb-2" style="font-size: 0.65rem;">
+                        <li class="nav-item"><a class="nav-link active py-1 px-0 panel-tab-btn" href="#tab-map-primer">Primer</a></li>
+                        <li class="nav-item"><a class="nav-link py-1 px-0 panel-tab-btn" href="#tab-map-sekunder">Sekunder</a></li>
+                        <li class="nav-item"><a class="nav-link py-1 px-0 panel-tab-btn" href="#tab-map-tersier">Tersier</a></li>
+                        <li class="nav-item"><a class="nav-link py-1 px-0 panel-tab-btn" href="#tab-map-bangunan">Bangunan</a></li>
+                    </ul>
+                    
+                    <div class="tab-content" style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column;">
+                        <div class="panel-tab-content" id="tab-map-primer" style="display:block; height:100%; overflow-y:auto;">
+                            <div class="list-group list-group-flush" id="list-map-primer"></div>
+                            <div class="pagination-container" id="pag-primer"></div>
+                        </div>
+                        <div class="panel-tab-content" id="tab-map-sekunder" style="display:none; height:100%; overflow-y:auto;">
+                            <div class="list-group list-group-flush" id="list-map-sekunder"></div>
+                            <div class="pagination-container" id="pag-sekunder"></div>
+                        </div>
+                        <div class="panel-tab-content" id="tab-map-tersier" style="display:none; height:100%; overflow-y:auto;">
+                            <div class="list-group list-group-flush" id="list-map-tersier"></div>
+                            <div class="pagination-container" id="pag-tersier"></div>
+                        </div>
+                        <div class="panel-tab-content" id="tab-map-bangunan" style="display:none; height:100%; overflow-y:auto;">
+                            <div class="list-group list-group-flush" id="list-map-bangunan"></div>
+                            <div class="pagination-container" id="pag-bangunan"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return container;
+        }
+    });
+    mapKeseluruhan.addControl(new ListAsetControl());
+
+// =======================================================
+// FUNGSI GABUNGAN: SEARCH + FILTER + SORT PANEL PETA
+// =======================================================
+function updatePanelFilter() {
+    let keyword = $('#map-search-input').val().toLowerCase();
+    let kondisiFilter = $('#map-filter-kondisi').val();
+    let sortBy = $('#map-sort-data').val();
+    
+    // Ambil tab mana yang sedang aktif (primer, sekunder, tersier, atau bangunan)
+    let activeTabHref = $('.custom-map-panel .panel-tab-btn.active').attr('href');
+    if (!activeTabHref) return;
+    let activeTabId = activeTabHref.replace('#tab-map-', '');
+
+    // 1. FILTERING
+    let filteredData = window.panelDataOriginal[activeTabId].filter(item => {
+        let matchName = item.name.includes(keyword);
+        let matchKondisi = true;
+        if (kondisiFilter !== 'ALL') {
+            matchKondisi = (item.kondisi || "").includes(kondisiFilter);
+        }
+        return matchName && matchKondisi;
+    });
+
+    // 2. SORTING (Logika Urutan: BAIK -> RR -> RB)
+    filteredData.sort((a, b) => {
+        let kA = (a.kondisi || "").toUpperCase();
+        let kB = (b.kondisi || "").toUpperCase();
+
+        let getSkor = (k) => {
+            if (k.includes('RB') || k.includes('BERAT')) return 3;
+            if (k.includes('RR') || k.includes('RINGAN')) return 2;
+            if (k.includes('BAP')) return 4;
+            return 1; // BAIK
+        };
+
+        let skorA = getSkor(kA);
+        let skorB = getSkor(kB);
+
+        if (sortBy === 'RB_FIRST') return skorB - skorA; // RB(3) ke BAIK(1)
+        if (sortBy === 'BAIK_FIRST') return skorA - skorB; // BAIK(1) ke RB(3)
+        if (sortBy === 'NAMA_ASC') return a.name.localeCompare(b.name);
+        return 0;
+    });
+
+    // 3. RENDER
+    window.panelDataFiltered[activeTabId] = filteredData;
+    window.panelPage[activeTabId] = 1;
+    window.renderPanelList(activeTabId);
+}
+
+// Tambahkan listener untuk mendeteksi perubahan dropdown & ketikan
+$(document).on('keyup', '#map-search-input', updatePanelFilter);
+$(document).on('change', '#map-filter-kondisi, #map-sort-data', updatePanelFilter);
+
+// PERBAIKAN PADA EVENT KLIK TAB (Agar filter tetap teraplikasi saat pindah tab)
+$(document).on('click', '.panel-tab-btn', function(e) {
+    e.preventDefault();
+    $('.panel-tab-btn').removeClass('active');
+    $(this).addClass('active');
+    
+    $('.panel-tab-content').hide();
+    const targetId = $(this).attr('href');
+    $(targetId).show();
+
+    // Langsung panggil fungsi filter agar tab baru mengikuti dropdown yang ada
+    updatePanelFilter(); 
+});
+
+    $(document).on('shown.bs.tab', '.custom-map-panel a[data-bs-toggle="pill"]', function (e) {
+        const targetKategori = $(e.target).attr('href').replace('#tab-map-', '');
+        $('#map-search-input').val('');
+        window.panelDataFiltered[targetKategori] = [...window.panelDataOriginal[targetKategori]];
+        window.panelPage[targetKategori] = 1;
+        window.renderPanelList(targetKategori);
+    });
+
     fetch('/api/bangunan/all/')
         .then(res => res.json())
-        .then(data => {
-            data.forEach(b => {
+        .then(response => {
+        let daftarAset = [];
+        if (Array.isArray(response)) daftarAset = response;
+        else if (response.data) daftarAset = response.data;
+
+        window.panelDataOriginal.bangunan = []; 
+    
+            daftarAset.forEach(b => {
                 if (b.latitude && b.longitude) {
-                    const iconUrl = `/static/icons/${b.kode_aset}.png`; 
-                
-                    const epaksiIcon = L.icon({
-                        iconUrl: iconUrl,
-                        iconSize: [32, 32],     
-                        iconAnchor: [16, 16],    
-                        popupAnchor: [0, -16],   
+                    let rawLat = parseFloat(b.latitude);
+                    let rawLng = parseFloat(b.longitude);
+                    let fixLat = (Math.abs(rawLat) > 90) ? rawLng : rawLat;
+                    let fixLng = (Math.abs(rawLat) > 90) ? rawLat : rawLng;
 
-                    });
+                    if (fixLat !== 0 && !isNaN(fixLat)) {
+                        
+                        const iconUrl = `/static/icons/${b.kode_aset || 'default'}.png`; 
+                        const epaksiIcon = L.icon({
+                            iconUrl: iconUrl,
+                            iconSize: [32, 32],     
+                            iconAnchor: [16, 16],    
+                            popupAnchor: [0, -16],   
+                        });
 
+                        const marker = L.marker([fixLat, fixLng], {
+                            icon: epaksiIcon,
+                            riseOnHover: true,
+                            pane: 'paneBangunan',
+                            dataTargetCari: (b.nama_poligon || b.di || "").trim().toUpperCase()
+                        });
 
-                    const marker = L.marker([parseFloat(b.latitude), parseFloat(b.longitude)], {
-                        icon: epaksiIcon,
-                        riseOnHover: true 
-                    });
-
-                    marker.on('click', function(e) {
-                        if (b.di) {
-                            grupKategori['lahan'].eachLayer(function(geoJsonLayer) {
-                                geoJsonLayer.eachLayer(function(polygonLayer) {
-                                    const namaPoligon = polygonLayer.options.kunciPencarian || "";
-                                    
-                                    if (namaPoligon.toUpperCase().includes(b.di.toUpperCase())) {
-                                        // 1. EFEK BLINK (Sudah Anda buat)
-                                        const domPath = polygonLayer.getElement();
-                                        if (domPath) {
-                                            domPath.classList.add('polygon-blink');
-                                            polygonLayer.bringToFront();
-                                            setTimeout(() => domPath.classList.remove('polygon-blink'), 3500);
-                                        }
-
-                                        // 2. ZOOM KE AREA LUAS FUNGSIONAL
-                                        // mapKeseluruhan.fitBounds(polygonLayer.getBounds(), { padding: [50, 50], maxZoom: 15 });
-
-                                        // 3. AMBIL DATA LUAS DARI POLIGON DAN MASUKKAN KE POPUP BANGUNAN
-                                        // Cek apakah poligon punya properti luas di GeoJSON-nya
-                                        const props = polygonLayer.feature.properties;
-                                        const luasBaku = props.luas_fungsional || props.Luas_Fung || "Tidak diketahui";
-                                        
-                                        // Buat elemen HTML baru untuk disisipkan ke dalam popup
-                                        const infoTambahan = `
-                                            <div style="margin-top:8px; padding:6px; background:#e8f4f8; border-left:4px solid #0d3b66; font-size:11px;">
-                                                <b>Area Fungsional Terhubung:</b><br>
-                                                <i class="fa-solid fa-draw-polygon"></i> ${namaPoligon} (${luasBaku} Ha)
-                                            </div>
-                                        `;
-                                        
-                                        // Ambil isi popup saat ini, lalu tambahkan info area
-                                        const currentPopup = marker.getPopup();
-                                        // Kita buat div id="info-area-${b.id}" di popupContent awal agar mudah di-replace (lihat poin di bawah)
-                                        const targetDiv = document.getElementById(`info-area-${b.id}`);
-                                        if (targetDiv) {
-                                            targetDiv.innerHTML = infoTambahan;
-                                        }
-                                    }
-                                });
-                            });
-                        }
-                    });
-
-
-                    let warnaKondisi = b.kondisi === 'BAIK' ? '#28a745' : (b.kondisi === 'RR' ? '#ffc107' : '#dc3545');
-
-                    const popupContent = `
-                        <div style="min-width:200px; font-family: sans-serif;">
-                            <div style="background:${warnaKondisi}; color:white; padding:8px; border-radius:4px 4px 0 0; font-weight:bold; text-align:center;">
-                                ${b.nomenklatur || 'Aset Bangunan'}
-                            </div>
-                            <div style="padding:10px; border:1px solid #ddd; border-top:none; background:white;">
-                                <table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:10px;">
-                                    <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>Kode</b></td><td class="text-end">${b.kode_aset}</td></tr>
-                                    <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>Kondisi</b></td><td class="text-end"><b>${b.kondisi}</b></td></tr>
-                                    <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>D.I.</b></td><td class="text-end">${b.di}</td></tr>
-                                    
-                                    <tr style="border-bottom:1px solid #eee;">
-                                        <td style="padding:4px 0; color:#0d3b66;"><b>Luas Layanan</b></td>
-                                        <td class="text-end"><b>${b.luas_areal} Ha</b></td>
-                                    </tr>
-                                    <tr style="border-bottom:1px solid #eee;">
-                                        <td style="padding:4px 0;"><b>Area (Spasial)</b></td>
-                                        <td class="text-end">${b.nama_poligon}</td>
-                                    </tr>
-
-                                    <tr><td style="padding:4px 0;"><b>Surveyor</b></td><td class="text-end">${b.surveyor}</td></tr>
-                                </table>
+                            marker.on('click', function(e) {
+                                const targetCariRaw = b.nama_poligon || b.di || ""; 
+                                const targetArray = targetCariRaw.split(',').map(item => item.trim().toUpperCase());
                                 
-                                ${b.foto_aset ? 
-                                    `<img src="${b.foto_aset}" style="width:100%; height:120px; object-fit:cover; border-radius:4px;">` : 
-                                    `<div style="text-align:center; color:#999; font-size:11px; padding:10px; border:1px dashed #ccc;">Foto belum tersedia</div>`
+                                console.log("Memulai pencarian poligon untuk array:", targetArray);
+
+                                if (targetArray.length > 0 && targetArray[0] !== "") {
+                                    let found = false;
+
+                                    grupKategori['lahan'].eachLayer(function(geoJsonLayer) {
+                                        geoJsonLayer.eachLayer(function(polygonLayer) {
+                                            const namaAsli = polygonLayer.options.kunciPencarian || "Area Spasial";
+                                            const kunciPoligon = namaAsli.trim().toUpperCase();
+
+                                            // Cek apakah kunciPoligon ada di dalam array target
+                                            if (targetArray.includes(kunciPoligon)) {
+                                                found = true;
+                                                console.log("Cocok! Menyalakan poligon:", kunciPoligon);
+
+                                                $(".polygon-blink").removeClass("polygon-blink");
+                                                const domPath = polygonLayer.getElement();
+                                                if (domPath) {
+                                                    polygonLayer.bringToFront();
+                                                    domPath.classList.add('polygon-blink');
+                                                    setTimeout(() => domPath.classList.remove('polygon-blink'), 3500);
+                                                }
+
+                                                const props = polygonLayer.feature.properties;
+                                                const luasBaku = props.luas_fungsional || props.Luas_Fung || props.LUAS || "0";
+
+                                                // Isi daftar poligon yang ditemukan ke dalam popup
+                                                const targetDiv = document.getElementById(`info-area-${b.id}`);
+                                                if (targetDiv) {
+                                                    // Jika sudah ada isinya (karena nemu >1 poligon), tambahkan
+                                                    let currentHTML = targetDiv.innerHTML;
+                                                    targetDiv.innerHTML = currentHTML + `
+                                                        <div style="margin-top:8px; padding:6px; background:#e8f4f8; border-left:4px solid #0d3b66; font-size:11px;">
+                                                            <b>Area Fungsional Terhubung:</b><br>
+                                                            <i class="fa-solid fa-draw-polygon"></i> ${namaAsli} (${luasBaku} Ha)
+                                                        </div>
+                                                    `;
+                                                }
+                                            }
+                                        });
+                                    });
+
+                                    // Blink marker
+                                    window.activeBlinkMarker = marker;
+                                    if (window.activeBlinkMarker._icon) {
+                                        window.activeBlinkMarker._icon.classList.add('marker-blink');
+                                    }
+
+                                    setTimeout(() => { marker.openPopup(); }, 200); 
+
+                                    if (!found) {
+                                        console.warn("Peringatan: Tidak satupun poligon ditemukan untuk target:", targetArray);
+                                    }
+                                } else {
+                                    marker.openPopup(); // Tetap buka popup kalau tidak punya poligon
                                 }
+                            });
 
-                                <div id="info-area-${b.id}"></div>
+                        let warnaKondisi = b.kondisi === 'BAIK' ? '#28a745' : (b.kondisi === 'RR' ? '#ffc107' : '#dc3545');
 
-                                <button onclick="showDetailPaiIksi(${b.id})" class="btn btn-sm w-100" 
-                                        style="background:#0d3b66; color:white; margin-top:10px; border:none; padding:8px; cursor:pointer; font-weight:bold;">
-                                    LIHAT DETAIL SURVEY
-                                </button>
+                        const popupContent = `
+                            <div style="min-width:200px; font-family: sans-serif;">
+                                <div style="background:${warnaKondisi}; color:white; padding:8px; border-radius:4px 4px 0 0; font-weight:bold; text-align:center;">
+                                    ${b.nomenklatur || 'Aset Bangunan'}
+                                </div>
+                                <div style="padding:10px; border:1px solid #ddd; border-top:none; background:white;">
+                                    <table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:10px;">
+                                        <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>Kode</b></td><td class="text-end">${b.kode_aset_display || b.kode_aset || '-'}</td></tr>
+                                        <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>Kondisi</b></td><td class="text-end"><b>${b.kondisi || '-'}</b></td></tr>
+                                        <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 0;"><b>D.I.</b></td><td class="text-end">${b.di || '-'}</td></tr>
+                                        
+                                        <tr style="border-bottom:1px solid #eee;">
+                                            <td style="padding:4px 0; color:#0d3b66;"><b>Luas Layanan</b></td>
+                                            <td class="text-end"><b>${b.luas_areal || '0'} Ha</b></td>
+                                        </tr>
+                                        <tr style="border-bottom:1px solid #eee;">
+                                            <td style="padding:4px 0;"><b>Area (Spasial)</b></td>
+                                            <td class="text-end"><span id="area-spasial-${b.id}">${b.nama_poligon || '-'}</span></td>
+                                        </tr>
+
+                                        <tr><td style="padding:4px 0;"><b>Surveyor</b></td><td class="text-end">${b.surveyor || '-'}</td></tr>
+
+                                        <div class="alert alert-warning p-1 mt-2 mb-0" style="font-size: 0.75rem;">
+                                            <i class="fas fa-info-circle"></i> <b>Catatan:</b><br>
+                                            ${b.keterangan || '-'}
+                                        </div>
+                                    </table>
+                                    
+                                    ${b.foto_aset ? 
+                                        `<img src="${b.foto_aset}" style="width:100%; height:120px; object-fit:cover; border-radius:4px;">` : 
+                                        `<div style="text-align:center; color:#999; font-size:11px; padding:10px; border:1px dashed #ccc;">Foto belum tersedia</div>`
+                                    }
+
+                                    <div id="info-area-${b.id}"></div>
+
+                                    <button onclick="showDetailPaiIksi(${b.id})" class="btn btn-sm w-100" 
+                                            style="background:#0d3b66; color:white; margin-top:10px; border:none; padding:8px; cursor:pointer; font-weight:bold;">
+                                        <i class="fa-solid fa-eye"></i> LIHAT DETAIL
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    `;
-                    marker.bindPopup(popupContent);
-                    marker.addTo(layerBangunanGroup);
+                        `;
+                        
+                        // Penting: Reset info-area setiap kali popup tertutup agar tidak numpuk
+                        marker.on('popupclose', function() {
+                            const targetDiv = document.getElementById(`info-area-${b.id}`);
+                            if(targetDiv) targetDiv.innerHTML = '';
+                        });
+
+                        marker.bindPopup(popupContent);
+                        marker.addTo(layerBangunanGroup);
+
+                                                // --- LOGIKA WARNA KONDISI UNTUK LIST PANEL (MAP KESELURUHAN) ---
+                        let labelKondisi = (b.kondisi || 'BAIK').toUpperCase();
+                        let badgeColorClass = 'bg-success'; // Default Hijau
+                        let borderKondisi = '#28a745'; // Default Hijau
+
+                        if (labelKondisi.includes('RR') || labelKondisi.includes('RINGAN') || labelKondisi.includes('SEDANG')) {
+                            badgeColorClass = 'bg-warning text-dark'; borderKondisi = '#ffc107'; // Kuning
+                        } else if (labelKondisi.includes('RB') || labelKondisi.includes('BERAT')) {
+                            badgeColorClass = 'bg-danger'; borderKondisi = '#dc3545'; // Merah
+                        } else if (labelKondisi.includes('BAP') || labelKondisi.includes('PASANGAN')) {
+                            badgeColorClass = 'bg-secondary'; borderKondisi = '#6c757d'; // Abu-abu
+                        }
+
+                        let itemHtml = `
+                            <div class="list-group-item item-bangunan" data-lat="${fixLat}" data-lng="${fixLng}" 
+                                 style="cursor:pointer; border-left: 4px solid ${borderKondisi}; margin-bottom: 2px; border-radius: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                    <b style="font-size: 11px; color: #333; max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${b.nomenklatur || b.kode_aset || 'Aset Bangunan'}
+                                    </b>
+                                    <span class="badge ${badgeColorClass}" style="font-size: 8px; min-width: 45px;">${labelKondisi}</span>
+                                </div>
+                                <div style="font-size: 9px; color: #666;"><i class="fa-solid fa-map-pin" style="color: #dc3545;"></i> ${b.di || '-'}</div>
+                            </div>`;
+
+                        window.panelDataOriginal.bangunan.push({ 
+                            name: (b.nomenklatur || b.kode_aset || b.nama_poligon || "aset").toLowerCase(), 
+                            kondisi: labelKondisi, 
+                            html: itemHtml 
+                        });
+                    }
                 }
             });
-        });
+
+            window.panelDataFiltered.bangunan = [...window.panelDataOriginal.bangunan];
+            window.renderPanelList('bangunan');
+        })
+        .catch(err => console.error("❌ Error mengambil data bangunan:", err));
 
     fetch('/api/layer-pendukung/')
         .then(res => res.json())
         .then(layers => {
+            if (grupKategori['lahan']) grupKategori['lahan'].clearLayers();
+            if (grupKategori['jalan']) grupKategori['jalan'].clearLayers();
+            if (grupKategori['wilayah']) grupKategori['wilayah'].clearLayers();
+            if (grupKategori['air']) grupKategori['air'].clearLayers();
             layers.forEach(layer => {
                 if (layer.file_geojson && layer.file_geojson.toLowerCase().endsWith('.json')) {
-                    fetch(layer.file_geojson)
+                    fetch(layer.file_geojson + "?v=" + new Date().getTime())
                         .then(r => r.json())
                         .then(geojsonData => {
+                            let targetPane = 'panePendukung';
+                            if (layer.kategori === 'wilayah') targetPane = 'paneWilayah';
+                            if (layer.kategori === 'lahan') targetPane = 'paneLahan';
                             const gLayer = L.geoJSON(geojsonData, {
+                                pane: targetPane,
                                 style: {
                                     color: layer.warna_garis || '#3388ff',
                                     weight: layer.kategori === 'jalan' ? 3 : 2,
                                     fillOpacity: (layer.kategori === 'wilayah' || layer.kategori === 'lahan') ? 0.3 : 0,
                                     dashArray: layer.kategori === 'wilayah' ? '5, 5' : '0'
                                 },
-                                onEachFeature: (f, l) =>{
-                                    l.bindTooltip(layer.nama, { sticky: true });
-                                    l.options.kunciPencarian = layer.nama;
+                                onEachFeature: (f, l) => {
+                                    let namaPasti = layer.nama;
+                                    if (layer.nama === "Luasan Areal Fungsional") {
+                                        namaPasti = f.properties.nama_di || f.properties.Nama_DI || f.properties.nama || "Area Spasial";
+                                    }
+                                    l.bindTooltip(namaPasti, { sticky: true });
+                                    l.options.kunciPencarian = namaPasti;
+
+                                    if (layer.kategori === 'lahan') {
+                                        l.on('click', function(e) {
+                                            const kunciPoligon = namaPasti.trim().toUpperCase();
+                                            let markerKetemu = false;
+
+                                            L.DomEvent.stopPropagation(e);
+
+                                            if (typeof matikanSemuaKedipan === "function") {
+                                                matikanSemuaKedipan();
+                                            }
+
+                                            window.activeBlinkPolygon = e.target;
+                                            const domPath = e.target.getElement(); 
+                                            if (domPath) {
+                                                domPath.classList.add('polygon-blink');
+                                                e.target.bringToFront(); 
+                                            }
+
+                                            // BUKA POPUP BANGUNAN JIKA KLIK POLIGON
+                                            layerBangunanGroup.eachLayer(function(marker) {
+                                                const rawTarget = marker.options.dataTargetCari || "";
+                                                const arrayTargets = rawTarget.split(',').map(i => i.trim().toUpperCase());
+
+                                                if (arrayTargets.includes(kunciPoligon)) {
+                                                    markerKetemu = true;
+                                                    
+                                                    window.activeBlinkMarker = marker;
+                                                    if (window.activeBlinkMarker._icon) {
+                                                        window.activeBlinkMarker._icon.classList.add('marker-blink');
+                                                    }
+
+                                                    setTimeout(() => {
+                                                        marker.openPopup();
+                                                    }, 200); 
+                                                }
+                                            });
+
+                                            if (!markerKetemu) {
+                                                console.log("Pencarian:", kunciPoligon, "- Belum ada data aset bangunan yang terhubung.");
+                                            }
+                                        });
+                                    }
                                 }
                             });
 
-                            // Masukkan ke grup kategori yang sesuai
                             if (grupKategori[layer.kategori]) {
                                 gLayer.addTo(grupKategori[layer.kategori]);
                             }
@@ -1185,12 +1562,10 @@ function initMapKeseluruhan() {
     fetch('/api/daerah-irigasi/') 
         .then(res => res.json())
         .then(response => {
-            // Pastikan mengambil data yang HANYA is_approved: true
             const daftarDI = response.filter(di => di.is_approved === true); 
-            
-            if (daftarDI.length === 0) {
-                console.warn("⚠️ Tidak ada data DI yang statusnya Approved!");
-            }
+            window.panelDataOriginal.primer = [];
+            window.panelDataOriginal.sekunder = [];
+            window.panelDataOriginal.tersier = [];
 
             const filterSelect = $('#filter-di');
             filterSelect.empty().append('<option value="">-- Pilih Daerah Irigasi --</option>');
@@ -1204,55 +1579,236 @@ function initMapKeseluruhan() {
 
                 if (di.saluran_list && di.saluran_list.length > 0) {
                     di.saluran_list.forEach(saluran => {
+                        if (saluran.is_approved != true) return;
                         const geometri = saluran.geometry_data || saluran.geom;
 
-                        if (geometri && geometri.coordinates) {
+                        if (geometri && geometri.type && geometri.coordinates) {
+                            
+                            const s_baik = parseFloat(saluran.panjang_baik) || 0;
+                            const s_rr   = parseFloat(saluran.panjang_rr) || 0;
+                            const s_rb   = parseFloat(saluran.panjang_rb) || 0;
+                            const s_bap  = parseFloat(saluran.panjang_bap) || 0;
+                            const totalPanjang = parseFloat(saluran.panjang_saluran) || 0;
+
+                            const totalKondisi = s_baik + s_rr + s_rb + s_bap;
+                            const pembagi = totalKondisi > 0 ? totalKondisi : (totalPanjang > 0 ? totalPanjang : 1);
+
+                            const pctBaik = (s_baik / pembagi) * 100;
+                            const pctRR   = (s_rr / pembagi) * 100;
+                            const pctRB   = (s_rb / pembagi) * 100;
+                            const pctBAP  = (s_bap / pembagi) * 100;
+
+                            const popupContent = `
+                                <div style="min-width: 260px; font-family: sans-serif;">
+                                    <div style="background: #0d3b66; color: white; padding: 8px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px; text-align: center;">
+                                        DETAIL SALURAN
+                                    </div>
+                                    <div style="padding: 10px; border: 1px solid #ccc; border-top: none; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-bottom: 8px;">
+                                            <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0; width: 35%;"><b>Nama</b></td><td>: <b>${saluran.nama_saluran || '-'}</b></td></tr>
+                                            <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0;"><b>DI</b></td><td>: ${di.nama_di || '-'}</td></tr>
+                                            <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0;"><b>Tingkat</b></td><td>: ${saluran.tingkat_jaringan || '-'}</td></tr>
+                                            <tr><td style="padding: 4px 0;"><b>P. Total</b></td><td>: ${totalPanjang.toLocaleString('id-ID')} m</td></tr>
+                                        </table>
+                                        
+                                        <div style="background: #f8f9fc; border: 1px solid #e3e6f0; border-radius: 4px; padding: 8px; margin-bottom: 10px;">
+                                            <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px; color: #5a5c69;">KONDISI FISIK (Meter)</div>
+                                            
+                                            <div class="progress" style="height: 10px; border-radius: 5px; margin-bottom: 8px; background-color: #e9ecef; overflow: hidden; display: flex;">
+                                                <div style="width: ${pctBaik}%; background-color: #1cc88a;" title="Baik: ${s_baik.toLocaleString('id-ID')}m"></div>
+                                                <div style="width: ${pctRR}%; background-color: #f6c23e;" title="Rusak Ringan: ${s_rr.toLocaleString('id-ID')}m"></div>
+                                                <div style="width: ${pctRB}%; background-color: #e74a3b;" title="Rusak Berat: ${s_rb.toLocaleString('id-ID')}m"></div>
+                                                <div style="width: ${pctBAP}%; background-color: #858796;" title="BAP: ${s_bap.toLocaleString('id-ID')}m"></div>
+                                            </div>
+                                            
+                                            <table style="width: 100%; font-size: 10px; text-align: center; line-height: 1.2;">
+                                                <tr>
+                                                    <td style="width: 25%;"><span style="color: #1cc88a; font-weight: 800;">BAIK</span><br>${s_baik.toLocaleString('id-ID')}</td>
+                                                    <td style="width: 25%; border-left: 1px solid #ddd;"><span style="color: #f6c23e; font-weight: 800;">RR</span><br>${s_rr.toLocaleString('id-ID')}</td>
+                                                    <td style="width: 25%; border-left: 1px solid #ddd;"><span style="color: #e74a3b; font-weight: 800;">RB</span><br>${s_rb.toLocaleString('id-ID')}</td>
+                                                    <td style="width: 25%; border-left: 1px solid #ddd;"><span style="color: #858796; font-weight: 800;">BAP</span><br>${s_bap.toLocaleString('id-ID')}</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                        <button onclick="ambilDataDanBukaModal(${saluran.id}, ${di.id})" style="width: 100%; background: #007bff; color: white; border: none; padding: 6px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;">
+                                            <i class="fa-solid fa-eye"></i> LIHAT DETAIL SALURAN
+                                        </button>
+                                    </div>
+                                </div>`;
+
                             L.geoJSON(geometri, {
-                                style: { 
-                                    color: "#2d93ad", 
-                                    weight: 4,
-                                    opacity: 0.8 
-                                },
+                                pane: 'paneSaluran',
+                                style: { color: "#2d93ad", weight: 4, opacity: 0.8 },
                                 onEachFeature: function(feature, layer) {
-                                    layer.on('mouseover', function() {
-                                        this.setStyle({ color: "#ffc107", weight: 7 });
-                                    });
-
-                                    layer.on('mouseout', function() {
-                                        this.setStyle({ color: "#2d93ad", weight: 4 });
-                                    });
-
-                                    // 2. Popup yang disesuaikan dengan Field JSON Bapak
-                                    const popupContent = `
-                                        <div style="min-width: 200px; font-family: sans-serif;">
-                                            <div style="background: #0d3b66; color: white; padding: 8px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px;">
-                                                DETAIL SALURAN
-                                            </div>
-                                            <div style="padding: 10px; border: 1px solid #ccc; border-top: none; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
-                                                    <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0;"><b>Nama</b></td><td>: ${saluran.nama_saluran}</td></tr>
-                                                    <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0;"><b>DI</b></td><td>: ${di.nama_di}</td></tr>
-                                                    <tr style="border-bottom: 1px solid #eee;"><td style="padding: 4px 0;"><b>Tingkat</b></td><td>: ${saluran.jaringan_tingkat || '-'}</td></tr>
-                                                    <tr><td style="padding: 4px 0;"><b>Panjang</b></td><td>: ${saluran.panjang_saluran || '0'} m</td></tr>
-                                                </table>
-                                                <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;">
-                                                <button onclick="bukaDetailDariPeta(${di.id})" style="width: 100%; background: #007bff; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;">LIHAT ANALISIS</button>
-                                            </div>
-                                        </div>`;
+                                    layer.options.is_approved = saluran.is_approved;
+                                    feature.properties = saluran;
+                                    window.dictLayerSaluran[saluran.id] = layer; 
+                                    
                                     layer.bindPopup(popupContent);
+
+                                    layer.on('click', function(e) {
+                                        const targetLayer = e.target;
+                                        
+                                        window.currentActiveSaluranId = saluran.id;
+                                        
+                                        Object.values(window.dictLayerSaluran).forEach(l => {
+                                            if (l.setStyle) l.setStyle({ color: "#2d93ad", weight: 4 });
+                                        });
+
+                                        if (targetLayer.setStyle) {
+                                            targetLayer.setStyle({ color: "#1cc88a", weight: 4 });
+                                        }
+                                        
+                                        if (window.currentActiveSegments) {
+                                            mapKeseluruhan.removeLayer(window.currentActiveSegments);
+                                        }
+                                        window.currentActiveSegments = L.featureGroup().addTo(diGroup);
+
+                                        if (saluran.segmen_list && saluran.segmen_list.length > 0) {
+                                            saluran.segmen_list.forEach(segmen => {
+                                                if (segmen.geometry_data && segmen.kondisi !== 'BAIK') {
+                                                    let warnaSegmen = "#2d93ad";
+                                                    if (segmen.kondisi === 'RR') warnaSegmen = "#f6c23e"; 
+                                                    if (segmen.kondisi === 'RB') warnaSegmen = "#e74a3b"; 
+                                                    if (segmen.kondisi === 'BAP') warnaSegmen = "#858796"; 
+
+                                                    L.geoJSON(segmen.geometry_data, {
+                                                        pane: 'paneSaluran',
+                                                        style: { color: warnaSegmen, weight: 6, opacity: 1 },
+                                                        onEachFeature: function(f, l) {
+                                                            l.bindPopup(popupContent);
+                                                        }
+                                                    }).addTo(window.currentActiveSegments);
+                                                }
+                                            });
+                                        }
+
+                                        targetLayer.openPopup();
+                                    });
+
+                                   layer.on('mouseover', function() {
+                                        this.setStyle({ color: "#ffc107", weight: 7 }); 
+                                    });
+                                    layer.on('mouseout', function() {
+                                        if (window.currentActiveSaluranId === saluran.id) {
+                                            this.setStyle({ color: "#1cc88a", weight: 4 });
+                                        } else {
+                                            this.setStyle({ color: "#2d93ad", weight: 4 });
+                                        }
+                                    });
                                 }
-                        }).addTo(diGroup);
+                            }).addTo(diGroup);
+
+                            let itemHtml = `
+                                <div class="list-group-item item-saluran" data-sal-id="${saluran.id}" style="cursor:pointer;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                        <b style="font-size: 11px; color: #333; max-width: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            ${saluran.nama_saluran || '-'}
+                                        </b>
+                                        <span class="badge bg-info text-dark" style="font-size: 10px;">${parseFloat(saluran.panjang_saluran||0).toFixed(0)}m</span>
+                                    </div>
+                                    <div style="font-size: 9px; color: #666;"><i class="fa-solid fa-water" style="color: #0d3b66;"></i> D.I. ${di.nama_di || '-'}</div>
+                                </div>`;
+
+                            let tingkat = (saluran.tingkat_jaringan || "").toLowerCase().trim();
+                            let kodeSal = (saluran.kode_aset_saluran || "").toUpperCase().trim();
+                            let namaSal = (saluran.nama_saluran || "").toLowerCase().trim();
+
+                            let itemObj = { 
+                                name: namaSal, 
+                                kondisi: (saluran.kondisi_aset || 'BAIK').toUpperCase(), // <--- TITIPKAN DATA KONDISI DI SINI
+                                html: itemHtml 
+                            };
+
+                            if (tingkat.includes('primer') || kodeSal === 'S01' || namaSal.includes('induk')) {
+                                window.panelDataOriginal.primer.push(itemObj);
+                            } else if (tingkat.includes('sekunder') || kodeSal === 'S02') {
+                                window.panelDataOriginal.sekunder.push(itemObj);
+                            } else {
+                                window.panelDataOriginal.tersier.push(itemObj);
+                            }
                         }
+
+                        
                     });
+            
                 }
             });
             
             if (typeof aktifkanLogikaFilter === "function") {
                 aktifkanLogikaFilter();
             }
+
+            window.panelDataFiltered.primer = [...window.panelDataOriginal.primer];
+            window.panelDataFiltered.sekunder = [...window.panelDataOriginal.sekunder];
+            window.panelDataFiltered.tersier = [...window.panelDataOriginal.tersier];
+            
+            window.renderPanelList('primer');
+            window.renderPanelList('sekunder');
+            window.renderPanelList('tersier');
         })
         .catch(err => console.error("❌ Error Fetch Data:", err));
+
+    ['primer', 'sekunder', 'tersier', 'bangunan'].forEach(kat => {
+        window.panelDataFiltered[kat] = [...window.panelDataOriginal[kat]];
+        window.renderPanelList(kat);
+    });
 }
+
+
+    $(document).on('click', '.item-saluran', function() {
+        const salId = $(this).data('sal-id');
+        const layerObj = window.dictLayerSaluran[salId];
+
+        // 1. Reset/Bersihkan dulu semua garis saluran ke warna biru standar
+        Object.values(window.dictLayerSaluran).forEach(layer => {
+            if (layer.setStyle) layer.setStyle({ color: "#1cc88a", weight: 4 });
+        });
+
+        if (layerObj) {
+            // 2. Beri efek tebal & warna kuning untuk saluran yang baru diklik
+            if (layerObj.setStyle) layerObj.setStyle({ color: "#ffc107", weight: 8 });
+
+            // 3. Terbang mem-paskan kamera ke garis tersebut
+            if (layerObj.getBounds) {
+                mapKeseluruhan.flyToBounds(layerObj.getBounds(), { padding: [50, 50], maxZoom: 17, duration: 1.5 });
+            }
+            // Buka popup
+            layerObj.openPopup();
+        }
+    });
+
+    // Klik Bangunan
+    $(document).on('click', '.item-bangunan', function() {
+        const lat = parseFloat($(this).data('lat'));
+        const lng = parseFloat($(this).data('lng'));
+        mapKeseluruhan.flyTo([lat, lng], 18, { animate: true, duration: 1.5 });
+    });
+
+
+    // Bersihkan filter ketika ganti tab
+    // Bersihkan filter dan atur tampilan murni pakai jQuery (Tanpa Bootstrap JS)
+    $(document).on('click', '.panel-tab-btn', function(e) {
+        e.preventDefault();
+        
+        // 1. Reset warna tombol
+        $('.panel-tab-btn').removeClass('active');
+        $(this).addClass('active');
+        
+        // 2. Sembunyikan semua isi tab secara paksa
+        $('.panel-tab-content').hide();
+        
+        // 3. Tampilkan isi tab yang dituju
+        const targetId = $(this).attr('href');
+        $(targetId).show();
+
+        // 4. Reset Pencarian & Data
+        const targetKategori = targetId.replace('#tab-map-', '');
+        $('#map-search-input').val('');
+        window.panelDataFiltered[targetKategori] = [...window.panelDataOriginal[targetKategori]];
+        window.panelPage[targetKategori] = 1;
+        window.renderPanelList(targetKategori);
+    });
 
 document.addEventListener('fullscreenchange', () => {
     setTimeout(() => {
@@ -1265,115 +1821,97 @@ function aktifkanLogikaFilter() {
         const id = $(this).val();
 
         // --- 1. RESET SEMUA EFEK SEBELUMNYA ---
-        // Kembalikan semua ke warna biru standar dan kunci dengan class 'no-blink'
         Object.values(diLayers).forEach(layerGroup => {
             layerGroup.eachLayer(function(l) {
-                // Fungsi pembantu untuk reset sampai ke level terdalam
                 function resetMendalam(layer) {
                     if (layer.eachLayer) {
                         layer.eachLayer(resetMendalam);
                     } else if (layer instanceof L.Path) {
-                        layer.setStyle({ 
-                            color: "#2d93ad", 
-                            weight: 3, 
-                            opacity: 0.7 
-                        });
-                        if (layer._path) {
-                            $(layer._path).addClass('no-blink').removeClass('active-filter');
-                        }
+                        layer.setStyle({ color: "#1cc88a", weight: 3, opacity: 0.7 }); // <--- UBAH DI SINI
+                        if (layer._path) { $(layer._path).addClass('no-blink').removeClass('active-filter'); }
                     }
                 }
                 resetMendalam(l);
             });
         });
 
+
         if (!id || id === "") {
             resetMap();
+            $('#peta-info-box').fadeOut(); 
             return;
         }
         
         if (id && diLayers[id]) {
             const selectedLayer = diLayers[id];
+            const bounds = selectedLayer.getBounds(); // PINDAHKAN KE SINI
+    
+            if (bounds && bounds.isValid()) {
+                mapKeseluruhan.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
+            }
             const di = diDataMap[id]; 
             let countData = 0;
 
-            tampilkanInfoDI(di);
+
+            if (di) {
+                console.log(`%c 🔎 FILTER TERPILIH: ${di.nama_di} `, 'background: #0d3b66; color: #fff; font-weight: bold;');
+                
+                $('#info-nama-di').text(di.nama_di || '-');
+                $('#info-kewenangan').text(di.kewenangan || 'Kabupaten');
+                
+                // Set Saluran
+                const jmlSaluran = di.saluran_list ? di.saluran_list.length : 0;
+                $('#info-saluran').text(jmlSaluran);
+
+                // --- HITUNG JUMLAH BANGUNAN SECARA LIVE DARI API ---
+                // Kita panggil API bangunan khusus untuk DI ini
+                fetch(`/api/bangunan/${id}/`)
+                    .then(res => res.json())
+                    .then(resBangunan => {
+                        const daftarBangunan = resBangunan.data || [];
+                        // Update angka bangunan di Info Box secara real-time
+                        $('#info-bangunan').text(daftarBangunan.length);
+                        console.log(`📊 Jumlah Bangunan Ditemukan: ${daftarBangunan.length}`);
+                    })
+                    .catch(err => {
+                        console.error("Gagal hitung bangunan:", err);
+                        $('#info-bangunan').text('0');
+                    });
+
+                if (di.file_skema) {
+                    $('#btn-download-skema').attr('href', di.file_skema).show();
+                } else {
+                    $('#btn-download-skema').hide();
+                }
+
+                $('#peta-info-box').fadeIn();
+            }
 
             mapKeseluruhan.closePopup();
 
-            // --- 2. LOGIKA REKURSIF UNTUK MENYALAKAN BLINK ---
+            // --- 3. LOGIKA REKURSIF UNTUK HIGHLIGHT ---
             function prosesLayer(target) {
                 if (target.eachLayer) {
-                    target.eachLayer(function(layer) {
-                        prosesLayer(layer); // Masuk terus ke dalam grup
-                    });
+                    target.eachLayer(function(layer) { prosesLayer(layer); });
                 } else if (target instanceof L.Path) {
+                    if (target.options && target.options.is_approved === false) return; 
                     countData++;
-                    // Eksekusi Efek Visual
-                    target.setStyle({ 
-                        color: "#ffc107", 
-                        weight: 10, 
-                        opacity: 1 
-                    });
-                    
-                    if (target._path) {
-                        // Cabut penahan 'no-blink' agar animasi CSS menyala
-                        $(target._path).removeClass('no-blink').addClass('active-filter');
-                    }
+                    target.setStyle({ color: "#ffc107", weight: 8, opacity: 1 });
+                    if (target._path) { $(target._path).removeClass('no-blink').addClass('active-filter'); }
                 }
             }
 
-            // Jalankan pencarian dan aktivasi
             prosesLayer(selectedLayer);
+            console.log(`📊 Saluran Aktif di Peta: ${countData}`);
 
-            console.log(`%c 🔎 FILTER TERPILIH: ${di.nama_di} `, 'background: #0d3b66; color: #fff; font-weight: bold;');
-            console.log(`📊 Jumlah Saluran (Ditemukan secara Rekursif): ${countData}`);
-
-            if (countData === 0) {
-                console.error("❌ Data saluran tidak ditemukan di dalam diLayers[" + id + "]");
-            }
-
-            // --- 3. TERBANG KE LOKASI ---
-            const bounds = selectedLayer.getBounds();
-            mapKeseluruhan.flyToBounds(bounds, { 
-                padding: [50, 50], 
-                duration: 1.5 
-            });
-
-            // --- 4. POPUP & RE-APPLY SETELAH TIBA ---
-            mapKeseluruhan.once('moveend', function() {
-                // Pastikan class tetap nempel setelah render ulang flyTo
-                prosesLayer(selectedLayer);
-
-                tampilkanInfoDI(di, selectedLayer);
-                
-                setTimeout(() => {
-                    const center = selectedLayer.getBounds().getCenter();
-                    const statusBadge = di.is_pai_verified ? '<span class="badge bg-success">PAI Complete</span>' : '<span class="badge bg-secondary">PAI Pending</span>';
-                    const iksiBadge = di.is_iksi_calculated ? '<span class="badge bg-info">IKSI Ready</span>' : '<span class="badge bg-light text-dark border">IKSI Pending</span>';
-                    
-                    const popupContent = `
-                        <div class="custom-popup" style="width:200px">
-                            <div class="popup-header p-2 rounded-top text-center" style="background-color: #0d3b66; color: white;">
-                                <h6 class="m-0 small fw-bold">${di.nama_di}</h6>
-                            </div>
-                            <div class="popup-body p-2 border border-top-0 rounded-bottom bg-white shadow-sm text-center">
-                                <div class="mb-2">${statusBadge} ${iksiBadge}</div>
-                                <p class="small mb-2 text-dark">Luas Fungsional: <b>${di.luas_fungsional} Ha</b></p>
-                                <button class="btn btn-sm w-100 text-white" style="font-size: 10px; background-color: #2d93ad;" 
-                                    onclick="bukaDetailDariPeta(${di.id})">DETAIL ANALISIS</button>
-                            </div>
-                        </div>`;
-
-                    L.popup({ minWidth: 180, closeOnClick: false })
-                        .setLatLng(center)
-                        .setContent(popupContent)
-                        .openOn(mapKeseluruhan);
-                }, 300);
-            });
+            // --- 4. TERBANG KE LOKASI ---
+            // const bounds = selectedLayer.getBounds();
+            // mapKeseluruhan.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
 
         } else {
+            console.warn("⚠️ Layer tidak ditemukan.");
             resetMap();
+            $('#peta-info-box').fadeOut();
         }
     });
 }
@@ -1381,12 +1919,18 @@ function aktifkanLogikaFilter() {
 function resetMap() {
     if (!mapKeseluruhan) return;
     
-    // Kembalikan warna semua saluran ke biru standar dan matikan blink
+    // Matikan pengingat saluran aktif & hapus belang-belang
+    window.currentActiveSaluranId = null;
+    if (window.currentActiveSegments) {
+        mapKeseluruhan.removeLayer(window.currentActiveSegments);
+        window.currentActiveSegments = null;
+    }
+    
+    // Kembalikan warna semua saluran ke Biru
     Object.values(diLayers).forEach(layerGroup => {
         layerGroup.eachLayer(function(layer) {
-            if (layer instanceof L.Path) {
+            if (layer instanceof L.Path && layer.setStyle) {
                 layer.setStyle({ color: "#2d93ad", weight: 3, opacity: 1 });
-                if (layer._path) $(layer._path).removeClass('blinking-canal');
             }
         });
     });
@@ -1397,18 +1941,6 @@ function resetMap() {
     mapKeseluruhan.flyTo([-6.722, 108.552], 11, { animate: true, duration: 1.2 });
 }
 
-// function tampilkanInfoDI(di, layer) {
-//     $('#peta-info-box').stop().fadeIn(300);
-//     $('#info-nama-di').text(di.nama_di);
-//     const badgeHtml = di.is_pai_verified ? '<span class="badge bg-success small">PAI Terverifikasi</span>' : '<span class="badge bg-secondary small">PAI Belum Terdata</span>';
-//     $('#info-saluran').text(di.jml_saluran || 0);
-//     $('#info-bangunan').text(di.jml_bangunan || 0);
-//     $('#info-kewenangan').text(di.kewenangan || "Kabupaten Cirebon");
-//     $('#info-status-pai').html(badgeHtml);
-    
-//     const btnSkema = $('#btn-download-skema');
-//     if (di.geojson_url) { btnSkema.attr('href', di.geojson_url).show(); } else { btnSkema.hide(); }
-// }
 
 function bukaDetailDariPeta(id) {
     // 1. Pindahkan Tab ke "Tabel Data"
@@ -1443,88 +1975,26 @@ $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
     }
 });
 
+// Ganti fungsi showDetailPaiIksi di dashboard.js dengan ini:
 function showDetailPaiIksi(asetId, namaAset) {
-    // 1. Cari data objek bangunan/titik dari array global
-    const dataAset = window.currentBangunanData.find(a => a.id === asetId);
-    
-    if (!dataAset) {
-        console.error("Data aset tidak ditemukan!");
-        return;
-    }
+    // Tampilkan loading jika perlu
+    console.log("Mengambil detail untuk aset ID:", asetId);
 
-    // 2. Identifikasi apakah ini Bangunan atau Saluran
-    // (Asumsi: Bangunan memiliki kode aset seperti B01, B02, P01, dll)
-    const isBangunan = dataAset.kode_aset && (dataAset.kode_aset.startsWith('B') || dataAset.kode_aset.startsWith('P'));
-
-    $('#pai-di-nama').text(`${dataAset.nama_saluran || '-'} / ${dataAset.luas_areal || 0} Ha`);
-    
-    // Update Baris Tabel
-    $('#pai-jenis').text(dataAset.kode_aset || '-');
-    $('#pai-nama').text(dataAset.nama_aset_manual || '-');
-    $('#pai-nomenklatur').text(dataAset.nomenklatur_ruas || '-');
-    $('#pai-saluran').text(dataAset.nama_saluran || '-');
-
-
-    // 3. Isi Header Info IKSI Bangunan
-    $('#iksi-nama-aset').text(dataAset.nama_aset_manual || '-');
-    $('#iksi-nomenklatur').text(dataAset.nomenklatur_ruas || '-');
-    $('#iksi-tahun').text('2023'); // Tahun survey dari data input
-
-    // Logika Surveyor: Hanya muncul jika ini data Bangunan
-    if (isBangunan) {
-        // Ambil field surveyor dari model TitikIrigasi yang dikirim lewat API
-        $('#iksi-surveyor').text(dataAset.surveyor || 'Surveyor e-PAKSI');
-    } else {
-        $('#iksi-surveyor').text('-'); // Kosongkan jika Saluran
-    }
-
-    if (dataAset.foto_aset) {
-        // Jika API mengirimkan path gambar
-        $('#pai-foto').html(`<img src="${dataAset.foto_aset}" class="img-fluid rounded shadow-sm" style="max-height: 200px; border: 1px solid #dee2e6;">`);
-    } else {
-        $('#pai-foto').html('<em class="text-muted"><i class="fa-solid fa-image-slash me-1"></i>Tidak ada foto</em>');
-    }
-
-    if (dataAset.latitude && dataAset.latitude !== 0) {
-        const geoJsonObj = {
-            "type": "Point",
-            "coordinates": [dataAset.longitude, dataAset.latitude]
-        };
-        $('#pai-geojson').text(JSON.stringify(geoJsonObj));
-    } else {
-        $('#pai-geojson').text('{"type":"Point","coordinates":[0,0]}');
-    }
-
-    $('#pai-catatan').text(dataAset.keterangan || '-');
-
-    // 6. Navigasi Otomatis ke Tab PAI
-    // Kita cari button pemicu tab-pai dan aktifkan
-    const tabTrigger = document.querySelector('button[data-bs-target="#tab-pai"]');
-    if (tabTrigger) {
-        const tab = new bootstrap.Tab(tabTrigger);
-        tab.show();
-    } else {
-        // Fallback jika menggunakan ID tab langsung
-        $('[data-bs-target="#tab-pai"]').tab('show');
-    }
-
-    document.getElementById('tab-pai').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-    });
-
-
-
-
-    // 4. Render Foto Bangunan
-    renderPhotos(dataAset);
-
-    // 5. Jalankan Pengisian Tabel IKSI Khusus Bangunan
-    renderTabelIksiBangunan(dataAset);
-    
-    // Tampilkan Modal
-    const modal = bootstrap.Modal.getOrCreateInstance('#modalAsetDetail');
-    modal.show();
+    // Panggil API untuk mendapatkan data detail terbaru dari server
+    fetch(`/api/bangunan/${asetId}/`)
+        .then(res => res.json())
+        .then(data => {
+            // PANGGIL fungsi yang ada di detailAsetBangunan.js
+            if (typeof bukaModalDetailAset === "function") {
+                bukaModalDetailAset(data);
+            } else {
+                console.error("Fungsi bukaModalDetailAset tidak ditemukan!");
+            }
+        })
+        .catch(err => {
+            console.error("Gagal mengambil data detail:", err);
+            alert("Gagal memuat detail aset.");
+        });
 }
 
 function renderPhotos(data) {
@@ -1695,198 +2165,176 @@ function updateBarChart(data) {
 }
 
 // Logika untuk Chart 2 (Perbandingan)
+// --- LOGIKA PERBANDINGAN PRIORITAS D.I. ---
 $('#selectDI1, #selectDI2').on('change', function() {
     const id1 = $('#selectDI1').val();
     const id2 = $('#selectDI2').val();
     
+    // Pastikan kedua dropdown sudah dipilih
     if(id1 && id2) {
-        // Ambil data dari variabel data_irigasi yang sudah di-serialize ke JSON
-        // Hitung Gap: (Fungsional / Baku) * 100
-        // Tampilkan di chartPerbandinganPrioritas (Grouped Bar Chart)
         
-        $('#rekomendasiKeputusan').fadeIn();
-        // Logika sederhana: Mana yang persentase fungsionalnya paling kecil, itu prioritas
+        // 1. Ambil data dari variabel global window.dataIrigasiFull
+        // Gunakan == (bukan ===) karena value dari dropdown berbentuk text (string), sedangkan id mungkin integer
+        const data1 = window.dataIrigasiFull.find(di => di.id == id1);
+        const data2 = window.dataIrigasiFull.find(di => di.id == id2);
+        
+        if (data1 && data2) {
+            
+            // 2. Hitung Persentase Fungsional (Realisasi)
+            let pctFungsional1 = data1.luas_baku_permen > 0 ? (data1.luas_fungsional / data1.luas_baku_permen) * 100 : 0;
+            let pctFungsional2 = data2.luas_baku_permen > 0 ? (data2.luas_fungsional / data2.luas_baku_permen) * 100 : 0;
+
+            // 3. Hitung Gap Kehilangan (Luas yang tidak terairi)
+            let gap1 = 100 - pctFungsional1;
+            let gap2 = 100 - pctFungsional2;
+
+            // 4. Logika Penentuan Prioritas (Yang persentase kehilangannya lebih besar = Prioritas)
+            let prioritasNama = "";
+            let prioritasGap = 0;
+
+            if (gap1 > gap2) {
+                prioritasNama = data1.nama_di;
+                prioritasGap = gap1;
+            } else if (gap2 > gap1) {
+                prioritasNama = data2.nama_di;
+                prioritasGap = gap2;
+            } else {
+                prioritasNama = "Keduanya Seimbang";
+                prioritasGap = gap1;
+            }
+
+            // 5. Tampilkan ke Box Rekomendasi
+            $('#namaDIPrioritas').text(prioritasNama);
+            $('#valGap').text(prioritasGap.toFixed(2)); // Dibulatkan 2 desimal
+            $('#rekomendasiKeputusan').fadeIn(); // Munculkan box merah
+
+            // 6. Gambar Grouped Bar Chart
+            const ctx = document.getElementById('chartPerbandinganPrioritas');
+            if (ctx) {
+                // Hancurkan chart lama jika sudah ada agar tidak error bertumpuk
+                if (window.chartPerbandinganPrioritasObj) {
+                    window.chartPerbandinganPrioritasObj.destroy();
+                }
+
+                window.chartPerbandinganPrioritasObj = new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: [data1.nama_di, data2.nama_di], // Nama 2 D.I. di sumbu X
+                        datasets: [
+                            {
+                                label: 'Luas Baku (Target)',
+                                data: [data1.luas_baku_permen, data2.luas_baku_permen],
+                                backgroundColor: '#e74a3b', // Merah
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'Luas Fungsional (Realisasi)',
+                                data: [data1.luas_fungsional, data2.luas_fungsional],
+                                backgroundColor: '#1cc88a', // Hijau
+                                borderRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            datalabels: {
+                                align: 'end',
+                                anchor: 'end',
+                                color: '#5a5c69',
+                                font: { weight: 'bold', size: 11 },
+                                formatter: function(value) {
+                                    return value + ' Ha'; // Tambahkan teks 'Ha' pada angka
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                title: { display: true, text: 'Luas Hektar (Ha)' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    } else {
+        // Jika salah satu dropdown di-reset/kosong, sembunyikan rekomendasi
+        $('#rekomendasiKeputusan').fadeOut();
+        if (window.chartPerbandinganPrioritasObj) {
+            window.chartPerbandinganPrioritasObj.destroy();
+        }
     }
 });
 
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    let charts = {};
 
-    // Ambil data dari Django (Gunakan kutipan agar tidak Redmark)
-    const dataPermen = [
-        parseFloat("{{ total_luas_permen|default:0 }}"),
-        parseFloat("{{ total_luas_potensial|default:0 }}"),
-        parseFloat("{{ total_luas|default:0 }}")
-    ];
-    
-    const dataOnemap = [
-        parseFloat("{{ total_luas_onemap|default:0 }}"),
-        parseFloat("{{ total_luas_potensial|default:0 }}"),
-        parseFloat("{{ total_luas|default:0 }}")
-    ];
+    let chartsProporsi = {};
 
-    // Label seragam untuk semua chart
-    const labelLingkaran = ['Baku', 'Potensial', 'Fungsional'];
-    const warnaLingkaran = ['#4e73df', '#f6c23e', '#1cc88a']; // Biru - Kuning - Hijau
+    // 1. Fungsi Pembuat Chart Bulat
+    function createProporsiPie(canvasId, labels, data, bgColors, chartName, totalKeseluruhan) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
 
-    function createDoughnut(canvasId, data) {
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        return new Chart(ctx, {
-            type: 'doughnut',
+        if (chartsProporsi[canvasId]) {
+            chartsProporsi[canvasId].destroy();
+        }
+
+        let totalNilai = data.reduce((a, b) => a + b, 0);
+        let finalLabels = totalNilai === 0 ? ['Data Kosong / Belum Diinput'] : labels;
+        let finalData = totalNilai === 0 ? [1] : data;
+        let finalColors = totalNilai === 0 ? ['#e9ecef'] : bgColors;
+
+        chartsProporsi[canvasId] = new Chart(ctx.getContext('2d'), {
+            type: 'pie',
             data: {
-                labels: labelLingkaran,
+                labels: finalLabels,
                 datasets: [{
-                    data: data,
-                    backgroundColor: warnaLingkaran,
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
+                    data: finalData,
+                    backgroundColor: finalColors,
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '70%',
                 plugins: {
                     legend: { 
-                        position: 'bottom', 
-                        labels: { boxWidth: 10, font: { size: 10 }, padding: 15 } 
-                    }
-                }
-            }
-        });
-    }
-
-    // Inisialisasi Chart Permen
-    function initPermenCharts() {
-        if (!charts.diPermen) {
-            // Ketiganya sekarang menggunakan data yang sama: [Baku, Potensial, Fungsional]
-            charts.diPermen = createDoughnut('chartDiPermen', dataPermen);
-            charts.paiPermen = createDoughnut('chartPaiPermen', dataPermen);
-            charts.iksiPermen = createDoughnut('chartIksiPermen', dataPermen);
-        }
-    }
-
-    // Inisialisasi Chart OneMap
-    function initOnemapCharts() {
-        if (!charts.diOnemap) {
-            charts.diOnemap = createDoughnut('chartDiOnemap', dataOnemap);
-            charts.paiOnemap = createDoughnut('chartPaiOnemap', dataOnemap);
-            charts.iksiOnemap = createDoughnut('chartIksiOnemap', dataOnemap);
-        }
-    }
-
-    // Jalankan pertama kali
-    initPermenCharts();
-
-    // Logika Tombol Ganti Data
-    $('#btn-switch-luas').on('click', function() {
-        const mode = $(this).attr('data-mode');
-        if (mode === 'permen') {
-            $('#container-permen').fadeOut(200, function() {
-                $('#container-onemap').fadeIn(200);
-                initOnemapCharts();
-            });
-            $(this).attr('data-mode', 'onemap').text('Ganti ke Data Permen PU 14/2015');
-            $('#title-statistik').text('DATA ONEMAP GEOSPASIAL');
-        } else {
-            $('#container-onemap').fadeOut(200, function() {
-                $('#container-permen').fadeIn(200);
-            });
-            $(this).attr('data-mode', 'permen').text('Ganti ke Data OneMap');
-            $('#title-statistik').text('DATA PERMEN PU 14/2015');
-        }
-    });
-});
-
-
-document.addEventListener('DOMContentLoaded', function() {
-
-    const labelsDI = ["CIWADO", "AGUNG", "KETOS", "CIMANIS", "CIBOGO"];
-    
-    // Data Persentase untuk Stacked Chart (Total tiap bar harus 100%)
-    const dataKeandalan = {
-        baik: [70, 60, 40, 85, 50],
-        rr: [15, 20, 30, 10, 20],
-        rb: [10, 15, 20, 5, 20],
-        bap: [5, 5, 10, 0, 10]
-    };
-    
-    // FUNGSI UMUM UNTUK MEMBUAT STACKED BAR HORIZONTAL (SUDUT MELENGKUNG)
-    function createStackedBar(canvasId, totalLength, baik, rr, rb, bap) {
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        
-        return new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: [''], 
-                datasets: [
-                    { label: 'Baik', data: [baik], backgroundColor: '#1cc88a' },
-                    { label: 'RR', data: [rr], backgroundColor: '#f6c23e' },
-                    { label: 'RB', data: [rb], backgroundColor: '#e74a3b' },
-                    { label: 'BAP', data: [bap], backgroundColor: '#858796' }
-                ]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                // Menambah ketebalan batang agar proporsional dengan lebarnya
-                barPercentage: 0.9, 
-                categoryPercentage: 1.0,
-                scales: {
-                    x: { 
-                        stacked: true, 
-                        max: totalLength,
-                        grid: { display: false } // Hilangkan garis kotak-kotak agar bersih
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 10 } }
                     },
-                    y: { stacked: true, display: false }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: true }
-                },
-                elements: {
-                    bar: {
-                        borderRadius: 10, // Melengkung halus
-                        borderSkipped: false
-                    }
-                }
-            }
-        });
-    }
-
-
-    function renderStackedChart() {
-        const ctx = document.getElementById('chartKeandalanStacked').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labelsDI,
-                datasets: [
-                    { label: 'Baik', data: dataKeandalan.baik, backgroundColor: '#1cc88a' },
-                    { label: 'Rusak Ringan', data: dataKeandalan.rr, backgroundColor: '#f6c23e' },
-                    { label: 'Rusak Berat', data: dataKeandalan.rb, backgroundColor: '#e74a3b' },
-                    { label: 'Belum Ada Pasangan', data: dataKeandalan.bap, backgroundColor: '#858796' }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { stacked: true }, // Mengaktifkan Mode Tumpuk
-                    y: { 
-                        stacked: true, 
-                        max: 100,
-                        title: { display: true, text: 'Persentase (%)' }
-                    }
-                },
-                plugins: {
-                    legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `${context.dataset.label}: ${context.raw}%`
+                            label: function(context) {
+                                if (totalNilai === 0) return ' Menunggu Data';
+                                
+                                let val = context.raw;
+                                let percentage = totalKeseluruhan > 0 ? ((val / totalKeseluruhan) * 100).toFixed(1) : 0;
+                                let labelName = context.label;
+                                
+                                let valStr = val.toLocaleString('id-ID');
+                                let totStr = totalKeseluruhan.toLocaleString('id-ID');
+
+                                // HOVER SESUAI PERMINTAAN
+                                if (labelName === "Belum Terairi") {
+                                    return ` Belum Terairi : ${valStr} Ha | ${chartName} Keseluruhan : ${totStr} Ha (${percentage}%)`;
+                                }
+                                return ` ${chartName} ${labelName} : ${valStr} Ha | ${chartName} Keseluruhan : ${totStr} Ha (${percentage}%)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: totalNilai === 0 ? '#6c757d' : '#fff',
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (value, ctx) => {
+                            if (totalNilai === 0) return 'Kosong'; 
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            if (sum === 0 || value === 0) return ''; 
+                            return (value * 100 / sum).toFixed(1) + "%";
                         }
                     }
                 }
@@ -1894,19 +2342,318 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- EKSEKUSI RENDER 3 CHART ---
-    // Atur panjang total (max sumbu X) dan data kondisi untuk masing-masing
-    
-    // 1. Chart Primer (Total Panjang 7500m)
-    createStackedBar('chartStackedPrimer', 7500, 5000, 1500, 700, 300);
-    
-    // 2. Chart Sekunder (Total Panjang 4500m)
-    createStackedBar('chartStackedSekunder', 4500, 3000, 1000, 400, 100);
-    
-    // 3. Chart Pembuang (Total Panjang 1500m)
-    createStackedBar('chartStackedPembuang', 1500, 1000, 300, 150, 50);
+    // 2. Fungsi Mengambil Data dari API dan Merender Chart
+    function fetchDanRenderPieCharts() {
+        // 🔥 KITA LANGSUNG TEMBAK API DAERAH IRIGASI DI SINI 🔥
+        fetch('/api/daerah-irigasi/')
+            .then(res => res.json())
+            .then(response => {
+                // Antisipasi format respons dari DRF (bisa langsung array, bisa di dalam "data")
+                let dataIrigasi = Array.isArray(response) ? response : response.data;
+                
+                if (!dataIrigasi || dataIrigasi.length === 0) return;
 
-    renderStackedChart();
+                let labelsDI = [];
+                let dataBakuPermen = [];
+                let dataBakuOnemap = [];
+                let dataPotensial = [];
+                let dataFungsional = [];
+                
+                let totalBakuPermen = 0;
+                let totalBakuOnemap = 0;
+                let totalPotensial = 0;
+                let totalFungsional = 0;
+
+                dataIrigasi.forEach(di => {
+                    // Gunakan nama asli dari database
+                    labelsDI.push(di.nama_di || "");
+                    
+                    // Tarik data langsung dari response API
+                    let bakuPermen = parseFloat(di.luas_baku_permen) || 0;
+                    let bakuOnemap = parseFloat(di.luas_baku_onemap) || 0;
+                    let potensial = parseFloat(di.luas_potensial) || 0;
+                    let fungsional = parseFloat(di.luas_fungsional) || 0;
+
+                    dataBakuPermen.push(bakuPermen);
+                    dataBakuOnemap.push(bakuOnemap);
+                    dataPotensial.push(potensial);
+                    dataFungsional.push(fungsional);
+
+                    totalBakuPermen += bakuPermen;
+                    totalBakuOnemap += bakuOnemap;
+                    totalPotensial += potensial;
+                    totalFungsional += fungsional;
+                });
+
+                // Hitung sisa yang tidak terairi. (Kita anggap acuannya Luas Baku)
+                let sisaBakuPermen = Math.max(0, totalBakuPermen - totalFungsional);
+                let sisaBakuOnemap = Math.max(0, totalBakuOnemap - totalFungsional);
+
+                // --- Susun array KHUSUS UNTUK CHART FUNGSIONAL (Ada Gap) ---
+                let labelsFungsional = [...labelsDI, "Belum Terairi"];
+                let dataFungsionalPermenChart = [...dataFungsional, sisaBakuPermen];
+                let dataFungsionalOnemapChart = [...dataFungsional, sisaBakuOnemap];
+
+                const bgColors = ['#4e73df', '#f6c23e', '#1cc88a', '#e74a3b', '#36b9cc'];
+                let bgColorsFungsional = [...bgColors.slice(0, labelsDI.length), '#e9ecef']; 
+
+                // --- RENDER DATA PERMEN PU ---
+                // Baku dan Potensial MURNI sesuai porsi DI masing-masing (tanpa sisa abu-abu)
+                createProporsiPie('chartDiPermen', labelsDI, dataBakuPermen, bgColors, 'Luas Baku', totalBakuPermen);
+                createProporsiPie('chartPaiPermen', labelsDI, dataPotensial, bgColors, 'Luas Potensial', totalPotensial); 
+                // Fungsional DITAMBAH sisa yang Belum Terairi
+                createProporsiPie('chartIksiPermen', labelsFungsional, dataFungsionalPermenChart, bgColorsFungsional, 'Luas Fungsional', totalBakuPermen);
+
+                // --- RENDER DATA ONEMAP ---
+                // Baku dan Potensial MURNI sesuai porsi DI masing-masing (tanpa sisa abu-abu)
+                createProporsiPie('chartDiOnemap', labelsDI, dataBakuOnemap, bgColors, 'Luas Baku', totalBakuOnemap);
+                createProporsiPie('chartPaiOnemap', labelsDI, dataPotensial, bgColors, 'Luas Potensial', totalPotensial); 
+                // Fungsional DITAMBAH sisa yang Belum Terairi
+                createProporsiPie('chartIksiOnemap', labelsFungsional, dataFungsionalOnemapChart, bgColorsFungsional, 'Luas Fungsional', totalBakuOnemap);
+            })
+            .catch(err => console.error("Gagal menarik data dari API:", err));
+    }
+
+    // 3. Eksekusi fungsi fetch saat halaman dimuat
+    fetchDanRenderPieCharts();
+
+    // 4. Logika Tombol Switcher Permen/OneMap
+    $('#btn-switch-luas').off('click').on('click', function() {
+        let mode = $(this).attr('data-mode');
+        let title = $('#title-statistik');
+
+        if (mode === 'permen') {
+            $('#container-permen').hide();
+            $('#container-onemap').fadeIn();
+            $(this).attr('data-mode', 'onemap');
+            $(this).html('<i class="fas fa-exchange-alt me-2 text-primary"></i> Ganti ke Data Permen PU');
+            title.text('DATA ONEMAP GEOSPASIAL').removeClass('text-primary').addClass('text-success');
+        } else {
+            $('#container-onemap').hide();
+            $('#container-permen').fadeIn();
+            $(this).attr('data-mode', 'permen');
+            $(this).html('<i class="fas fa-exchange-alt me-2 text-warning"></i> Ganti ke Data OneMap');
+            title.text('DATA PERMEN PU 14/2015').removeClass('text-success').addClass('text-primary');
+        }
+    });
+
+});
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    fetch('/api/daerah-irigasi/')
+        .then(response => response.json())
+        .then(res => {
+            renderChartsOnly(res);
+        })
+        .catch(err => console.error("Gagal update Chart:", err));
+
+    function renderChartsOnly(allData) {
+        let labelsDI = [];
+        
+        // Siapkan penampung untuk Chart Kanan (Per DI)
+        let dsPrimer = { baik: [], rr: [], rb: [], bap: [], totals: [] };
+        let dsSekunder = { baik: [], rr: [], rb: [], bap: [], totals: [] };
+        let dsTersier = { baik: [], rr: [], rb: [], bap: [], totals: [] };
+        
+        // Siapkan penampung untuk Chart Kiri (Global Keseluruhan)
+        let pTotal = [0, 0, 0, 0], sTotal = [0, 0, 0, 0], tTotal = [0, 0, 0, 0];
+
+        allData.forEach(di => {
+            labelsDI.push(di.nama_di);
+
+            let primer = { baik: 0, rr: 0, rb: 0, bap: 0 };
+            let sekunder = { baik: 0, rr: 0, rb: 0, bap: 0 };
+            let tersier = { baik: 0, rr: 0, rb: 0, bap: 0 };
+
+            // Mengelompokkan panjang berdasarkan jenis saluran per DI
+            if (di.saluran_list && Array.isArray(di.saluran_list)) {
+                di.saluran_list.forEach(sal => {
+                    let kode = sal.kode_aset_saluran;
+                    let pBaik = parseFloat(sal.panjang_baik) || 0;
+                    let pRr = parseFloat(sal.panjang_rr) || 0;
+                    let pRb = parseFloat(sal.panjang_rb) || 0;
+                    let pBap = parseFloat(sal.panjang_bap) || 0;
+
+                    if (kode === 'S01') { 
+                        primer.baik += pBaik; primer.rr += pRr; primer.rb += pRb; primer.bap += pBap;
+                    } else if (kode === 'S02') { 
+                        sekunder.baik += pBaik; sekunder.rr += pRr; sekunder.rb += pRb; sekunder.bap += pBap;
+                    } else if (kode === 'S15') { 
+                        tersier.baik += pBaik; tersier.rr += pRr; tersier.rb += pRb; tersier.bap += pBap;
+                    }
+                });
+            }
+
+            // --- HITUNGAN CHART KANAN (PER DI) ---
+            let totP = primer.baik + primer.rr + primer.rb + primer.bap;
+            let totS = sekunder.baik + sekunder.rr + sekunder.rb + sekunder.bap;
+            let totT = tersier.baik + tersier.rr + tersier.rb + tersier.bap;
+
+            dsPrimer.totals.push(totP);
+            dsSekunder.totals.push(totS);
+            dsTersier.totals.push(totT);
+
+            const getPct = (val, tot) => tot > 0 ? (val / tot * 100) : 0;
+
+            dsPrimer.baik.push(getPct(primer.baik, totP));
+            dsPrimer.rr.push(getPct(primer.rr, totP));
+            dsPrimer.rb.push(getPct(primer.rb, totP));
+            dsPrimer.bap.push(getPct(primer.bap, totP));
+
+            dsSekunder.baik.push(getPct(sekunder.baik, totS));
+            dsSekunder.rr.push(getPct(sekunder.rr, totS));
+            dsSekunder.rb.push(getPct(sekunder.rb, totS));
+            dsSekunder.bap.push(getPct(sekunder.bap, totS));
+
+            dsTersier.baik.push(getPct(tersier.baik, totT));
+            dsTersier.rr.push(getPct(tersier.rr, totT));
+            dsTersier.rb.push(getPct(tersier.rb, totT));
+            dsTersier.bap.push(getPct(tersier.bap, totT));
+
+            // --- HITUNGAN CHART KIRI (GLOBAL METERAN) ---
+            pTotal[0] += primer.baik; pTotal[1] += primer.rr; pTotal[2] += primer.rb; pTotal[3] += primer.bap;
+            sTotal[0] += sekunder.baik; sTotal[1] += sekunder.rr; sTotal[2] += sekunder.rb; sTotal[3] += sekunder.bap;
+            tTotal[0] += tersier.baik; tTotal[1] += tersier.rr; tTotal[2] += tersier.rb; tTotal[3] += tersier.bap;
+        });
+
+        // Pastikan chart lama dihapus jika ada
+        Chart.helpers.each(Chart.instances, function(instance){
+            if (['chartStackedPrimer', 'chartStackedSekunder', 'chartStackedTersier', 'chartKeandalanPrimer', 'chartKeandalanSekunder', 'chartKeandalanTersier'].includes(instance.canvas.id)) {
+                instance.destroy();
+            }
+        });
+
+        // Render Chart Kiri
+        createStackedBar('chartStackedPrimer', pTotal);
+        createStackedBar('chartStackedSekunder', sTotal);
+        createStackedBar('chartStackedTersier', tTotal); 
+
+        // Render Chart Kanan (Carousel 3 Tingkat)
+        renderKeandalanChart('chartKeandalanPrimer', labelsDI, dsPrimer);
+        renderKeandalanChart('chartKeandalanSekunder', labelsDI, dsSekunder);
+        renderKeandalanChart('chartKeandalanTersier', labelsDI, dsTersier);
+    }
+
+    function createStackedBar(canvasId, dataArray) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const total = dataArray.reduce((a, b) => a + b, 0);
+
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [''], 
+                datasets: [
+                    { label: 'Baik', data: [dataArray[0]], backgroundColor: '#1cc88a' },
+                    { label: 'Rusak Ringan', data: [dataArray[1]], backgroundColor: '#f6c23e' },
+                    { label: 'Rusak Berat', data: [dataArray[2]], backgroundColor: '#e74a3b' },
+                    { label: 'BAP', data: [dataArray[3]], backgroundColor: '#858796' }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, max: total > 0 ? total : 100, display: false },
+                    y: { stacked: true, display: false }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: total > 0,
+                        callbacks: {
+                            label: (ctx) => {
+                                let val = ctx.raw;
+                                let pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                // HOVER CHART 1 (METERAN): Baik ( % ) | dari 100 % ( Total Panjang Saluran Primer )
+                                return `${ctx.dataset.label} (${pct}%) | dari 100% (${total.toLocaleString('id-ID')} m)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: (context) => context.dataset.data[context.dataIndex] > 0,
+                        color: '#000', 
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (value) => Math.round(value).toLocaleString('id-ID') + ' m',
+                        anchor: 'center', align: 'center'
+                    }
+                },
+                animation: {
+                    onComplete: function(animation) {
+                        if (total === 0) {
+                            const chart = animation.chart;
+                            const { ctx } = chart;
+                            ctx.save();
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.fillStyle = '#858796';
+                            ctx.fillText('Data Kosong (0 m)', chart.width / 2, chart.height / 2);
+                            ctx.restore();
+                        }
+                    }
+                },
+                elements: { bar: { borderRadius: 5, borderSkipped: false } }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    function renderKeandalanChart(canvasId, labels, ds) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Baik', data: ds.baik, backgroundColor: '#1cc88a' },
+                    { label: 'Rusak Ringan', data: ds.rr, backgroundColor: '#f6c23e' },
+                    { label: 'Rusak Berat', data: ds.rb, backgroundColor: '#e74a3b' },
+                    { label: 'BAP', data: ds.bap, backgroundColor: '#858796' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, ticks: { font: { weight: 'bold', color: '#000' } } },
+                    y: { 
+                        stacked: true, max: 100,
+                        title: { display: true, text: 'Persentase (%)', font: { weight: 'bold', color: '#000' } },
+                        ticks: { callback: (value) => value + '%' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                let pct = ctx.raw.toFixed(1);
+                                let totalMeters = ds.totals[ctx.dataIndex]; // Tarik data total meter dari index yang diklik
+                                // HOVER CHART 2 (PERSEN): Baik ( % ) | dari 100 % ( Total Panjang Saluran Primer )
+                                return `${ctx.dataset.label} (${pct}%) | dari 100% (${totalMeters.toLocaleString('id-ID')} m)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: (context) => context.dataset.data[context.dataIndex] > 5, 
+                        color: '#000000', 
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value) => Math.round(value) + '%',
+                        anchor: 'center', align: 'center'
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
 });
 
 
@@ -1995,3 +2742,513 @@ function tampilkanInfoDI(data) {
 $(document).on('click', '#close-info-btn', function() {
     $("#peta-info-box").fadeOut();
 });
+
+$(document).ready(function() {
+    // ==========================================
+// 1. INIT DATATABLES BANGUNAN MASTER
+// ==========================================
+if ($('#table-bangunan-master').length) {
+    var tableAsetMaster = $('#table-bangunan-master').DataTable({
+        "pageLength": 5,
+        
+        // Dom untuk memunculkan Tombol Export
+        "dom": "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'B>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+               
+        // Tombol Monochrome
+        "buttons": [
+            { extend: 'copy', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-copy"></i> Copy' },
+            { extend: 'excel', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-file-excel"></i> Excel' },
+            { extend: 'pdf', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-file-pdf"></i> PDF' },
+            { extend: 'print', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-print"></i> Print' }
+        ],
+
+        "columnDefs": [
+            // Matikan sorting manual pada kolom No
+            { "searchable": false, "orderable": false, "targets": 0 },
+            // Kolom KategoriAsetHidden di Kolom ke-5 (Index 5)
+            { "targets": [5], "visible": false, "searchable": true },
+            // Matikan fungsi sorting di Kolom Aksi (Index 9)
+            { "orderable": false, "targets": [9] } 
+        ],
+        
+        // DEFAULT ORDER: 
+        // 1. Kolom 1 (Daerah Irigasi) -> A-Z
+        // 2. Kolom 4 (Kode - Nama Bangunan) -> A-Z
+        "order": [[1, "asc"], [4, "asc"], [6, "asc"]],
+
+        "language": {
+            "search": "Cari Aset:",
+            "lengthMenu": "Tampilkan _MENU_ data",
+            "info": "Menampilkan _START_ sampai _END_ dari _TOTAL_ aset",
+            "infoEmpty": "Tidak ada data tersedia",
+            "paginate": {
+                "first": "Pertama",
+                "last": "Terakhir",
+                "next": "Selanjutnya",
+                "previous": "Sebelumnya"
+            }
+        },
+
+        "initComplete": function () {
+            var api = this.api();
+            // Isi otomatis dropdown D.I. dari kolom index 1
+            api.column(3).data().unique().sort().each(function (d, j) {
+                if (d && d !== "-") {
+                    $('#filter-di-bangunan').append('<option value="' + d + '">' + d + '</option>');
+                }
+            });
+        }
+    });
+
+    // Perbarui Nomor Urut otomatis 1,2,3...
+    tableAsetMaster.on('order.dt search.dt', function () {
+        let i = 1;
+        tableAsetMaster.cells(null, 0, { search: 'applied', order: 'applied' }).every(function (cell) {
+            this.data(i++);
+        });
+    }).draw();
+
+    // ------------------------------------------
+    // 2. LOGIKA FILTER BANGUNAN
+    // ------------------------------------------
+    
+    // A. Filter Button (Bendung, Pintu, Penunjang)
+    $('.btn-filter-aset').on('click', function() {
+        $('.btn-filter-aset').removeClass('btn-primary').addClass('btn-outline-primary');
+        $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+        
+        var filterValue = $(this).attr('data-kategori');
+        
+        if (filterValue) {
+            tableAsetMaster.column(5).search('^' + filterValue + '$', true, false).draw();
+        } else {
+            tableAsetMaster.column(5).search('').draw(); 
+        }
+    });
+
+    // B. Filter D.I. Dropdown
+    $('#filter-di-bangunan').on('change', function () {
+        var val = $.fn.dataTable.util.escapeRegex($(this).val());
+        // Filter kolom ke-2 (Index 1: Nama D.I.)
+        tableAsetMaster.column(3).search(val ? '^' + val + '$' : '', true, false).draw();
+    });
+
+    // C. Filter Kondisi Dropdown
+    $('#sort-kondisi-bangunan').on('change', function () {
+        var val = $.fn.dataTable.util.escapeRegex($(this).val());
+        if (val) {
+            tableAsetMaster.column(6).search('^' + val + '$', true, false).draw();
+        } else {
+            tableAsetMaster.column(6).search('').draw();
+            // Kembalikan ke default sorting jika di-reset
+            tableAsetMaster.order([[1, 'asc'], [4, 'asc'], [6, 'asc']]).draw();
+        }
+    });
+}
+});
+
+
+// function bukaModalSaluran(kode, nama, nomen, hulu, hilir, pj, baik, rr, rb, bap, surveyor, foto, luas) {
+//     // 1. Debugging: Cek di console apakah urutan data sudah benar
+//     console.log("Data diterima:", {kode, nama, nomen, hulu, hilir, pj, baik, rr, rb, bap, surveyor, foto, luas});
+
+//     // 2. Pembersihan Backdrop (Fix Layar Gelap/Freeze)
+//     $('.modal-backdrop').remove();
+//     $('body').removeClass('modal-open').css('padding-right', '');
+
+//     // 3. Mapping Data ke Elemen HTML Modal
+//     // Menggunakan ID yang sesuai dengan tabel di base.html
+//     const setEl = (id, val) => {
+//         const el = document.getElementById(id);
+//         if (el) el.innerText = val || '-';
+//     };
+
+//     setEl('det-header', nama);
+//     setEl('det-jenis', kode);
+//     setEl('det-nama', nama);
+//     setEl('det-nomenklatur', nomen);
+//     setEl('det-hulu', hulu);
+//     setEl('det-hilir', hilir); // Hilir diisi dari parameter ke-5
+//     setEl('det-panjang', pj + ' m');
+//     setEl('det-luas', luas + ' Ha'); // Luas diisi dari parameter ke-13
+    
+//     // Data Kondisi (Detail meteran)
+//     setEl('det-baik', baik + ' m');
+//     setEl('det-rr', rr + ' m');
+//     setEl('det-rb', rb + ' m');
+//     setEl('det-bap', bap + ' m');
+//     setEl('det-surveyor', surveyor);
+
+//     // 4. Menampilkan Foto
+//     const containerFoto = document.getElementById('sal-foto');
+//     if (containerFoto) {
+//         containerFoto.innerHTML = foto ? 
+//             `<img src="${foto}" class="img-fluid rounded border" style="max-height: 200px; object-fit: cover;">` : 
+//             '<small class="text-muted">Tidak ada foto dokumentasi</small>';
+//     }
+
+//     // 5. Eksekusi Modal
+//     const modalEl = document.getElementById('modalSaluranDetail');
+//     if (modalEl) {
+//         const myModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+//         myModal.show();
+
+//         // Listener tambahan untuk memastikan backdrop hilang saat modal muncul
+//         modalEl.addEventListener('shown.bs.modal', function () {
+//             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+//             document.body.classList.remove('modal-open');
+//             document.body.style.overflow = 'auto';
+//         }, { once: true });
+//     }
+// }
+
+let currentGeoJSONData = null;
+let currentNamaSaluran = "Saluran_Irigasi";
+
+function ambilDataDanBukaModal(saluranId, diId) {
+    // 1. Bersihkan backdrop agar tidak freeze/gelap
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css('overflow', 'auto');
+
+    // 2. Ambil data Saluran dan Bangunan secara paralel
+    Promise.all([
+        fetch('/api/daerah-irigasi/').then(res => res.json()),
+        fetch(`/api/bangunan/${diId}/?saluran_id=${saluranId}`).then(res => res.json())
+    ])
+    .then(([allData, resBangunan]) => {
+        let dataSaluran = null;
+        let namaDI = "-";
+        
+        // Cari data saluran di dalam list DI dari API
+        allData.forEach(di => {
+            if (di.saluran_list) {
+                let found = di.saluran_list.find(s => s.id == saluranId);
+                if (found) {
+                    dataSaluran = found;
+                    namaDI = di.nama_di;
+                }
+            }
+        });
+
+        if (dataSaluran) {
+            const setEl = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = val || '-'; // Gunakan innerHTML agar bisa merender badge HTML
+            };
+
+            // I. DATA UMUM & ADMINISTRASI
+            setEl('sal-header-title', dataSaluran.nama_saluran);
+            setEl('sal-jenis', dataSaluran.kode_aset_saluran_display || dataSaluran.kode_aset_saluran || '-');
+            setEl('sal-nama', dataSaluran.nama_saluran);
+            setEl('sal-di', namaDI);
+            setEl('sal-tingkat', dataSaluran.tingkat_jaringan || 'Teknis');
+            setEl('sal-kewenangan', dataSaluran.kewenangan || 'Kabupaten');
+            setEl('sal-hulu', dataSaluran.bangunan_hulu_nama);
+
+            // II. DATA TEKNIS & KONDISI
+            setEl('sal-panjang', dataSaluran.panjang_saluran + ' m');
+            setEl('sal-baik', (dataSaluran.panjang_baik || 0) + ' m');
+            setEl('sal-rr', (dataSaluran.panjang_rr || 0) + ' m');
+            setEl('sal-rb', (dataSaluran.panjang_rb || 0) + ' m');
+            setEl('sal-bap', (dataSaluran.panjang_bap || 0) + ' m');
+
+            
+            let kondisiText = dataSaluran.kondisi_aset || '-';
+            let badgeClass = 'bg-success';
+            
+            if (kondisiText === '-') {
+                // Fallback hitung otomatis jika API tidak menyediakan kondisi_aset
+                let b = parseFloat(dataSaluran.panjang_baik) || 0;
+                let rr = parseFloat(dataSaluran.panjang_rr) || 0;
+                let rb = parseFloat(dataSaluran.panjang_rb) || 0;
+                if ((b + rr + rb) > 0) {
+                    if (rb > b && rb > rr) kondisiText = 'RUSAK BERAT';
+                    else if (rr > b) kondisiText = 'RUSAK RINGAN';
+                    else kondisiText = 'BAIK';
+                } else {
+                    kondisiText = 'BAIK';
+                }
+            }
+
+            let kUpper = kondisiText.toUpperCase();
+            if (kUpper.includes('RR') || kUpper.includes('RINGAN') || kUpper.includes('SEDANG')) badgeClass = 'bg-warning text-dark';
+            if (kUpper.includes('RB') || kUpper.includes('BERAT')) badgeClass = 'bg-danger';
+            if (kUpper.includes('BAP') || kUpper.includes('PASANGAN')) badgeClass = 'bg-secondary';
+
+            setEl('sal-kondisi', `<span class="badge ${badgeClass}">${kUpper}</span>`);
+            
+
+            // III. DOKUMENTASI
+            setEl('sal-geometri', dataSaluran.geometry_data ? 'Tersedia (GeoJSON)' : 'Tidak Ada');
+            setEl('sal-surveyor', dataSaluran.surveyor);
+
+            const spanGeometri = document.getElementById('sal-geometri');
+            const btnUnduhGeometri = document.getElementById('btn-unduh-geojson');
+
+            if (dataSaluran.geometry_data) {
+                // Ada data JSON spasial dari server
+                if (spanGeometri) spanGeometri.innerText = 'Tersedia (GeoJSON)';
+                if (btnUnduhGeometri) {
+                    btnUnduhGeometri.classList.remove('d-none');
+                    btnUnduhGeometri.setAttribute('onclick', 'prosesUnduhGeoJSON()');
+                }
+                // Simpan ke memori untuk diunduh nanti
+                currentGeoJSONData = dataSaluran.geometry_data;
+                currentNamaSaluran = dataSaluran.nama_saluran;
+
+            } else if (dataSaluran.geojson_url) {
+                // Ada link file GeoJSON langsung
+                if (spanGeometri) spanGeometri.innerText = 'Tersedia (File URL)';
+                if (btnUnduhGeometri) {
+                    btnUnduhGeometri.classList.remove('d-none');
+                    btnUnduhGeometri.setAttribute('onclick', `window.open('${dataSaluran.geojson_url}', '_blank')`);
+                }
+                currentGeoJSONData = null;
+            } else {
+                // Tidak ada data geometri sama sekali
+                if (spanGeometri) spanGeometri.innerText = 'Tidak Ada';
+                if (btnUnduhGeometri) btnUnduhGeometri.classList.add('d-none');
+                currentGeoJSONData = null;
+            }
+
+            const containerFoto = document.getElementById('sal-foto');
+            if (containerFoto) {
+                let photos = dataSaluran.all_photos || []; 
+                
+                if (photos.length > 0) {
+                    let htmlGallery = '';
+                    photos.forEach(url => {
+                        htmlGallery += `
+                            <div class="sal-gallery-item">
+                                <a href="${url}" target="_blank">
+                                    <img src="${url}" onerror="this.src='/static/img/no-image.png'">
+                                </a>
+                            </div>`;
+                    });
+                    containerFoto.innerHTML = htmlGallery;
+                    // Tambahkan style inline untuk memastikan lebar container tidak merusak tabel
+                    containerFoto.style.display = 'flex';
+                } else {
+                    containerFoto.innerHTML = '<div class="small text-muted">Tidak ada foto</div>';
+                }
+            }
+
+            // 3. Tampilkan Modal
+            const modalEl = document.getElementById('modalSaluranDetail');
+            const myModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            myModal.show();
+
+            // Fix Backdrop
+            modalEl.addEventListener('shown.bs.modal', function () {
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            }, { once: true });
+
+        } else {
+            alert("Data saluran tidak ditemukan di API");
+        }
+    })
+    .catch(err => {
+        console.error("Fetch Error:", err);
+        alert("Gagal memuat data");
+    });
+}
+
+
+function bukaDetailDiTabel(kodeAset) {
+    // 1. Tutup popup peta agar rapi
+    if (typeof mapKeseluruhan !== 'undefined' && mapKeseluruhan !== null) {
+        mapKeseluruhan.closePopup();
+    }
+
+    // 2. Pindah otomatis ke Tab "Komposisi Luasan" tempat tabel itu bersarang
+    const tabTrigger = document.querySelector('#chart-tab');
+    if (tabTrigger) {
+        const tab = bootstrap.Tab.getOrCreateInstance(tabTrigger);
+        tab.show();
+    }
+
+    // 3. Panggil fungsi GSAP Bapak/Ibu untuk membuka Div "view-detail-distribusi"
+    if (typeof showDrillDownDistribusi === "function") {
+        showDrillDownDistribusi();
+    }
+
+    // 4. Tunggu animasi perpindahan Tab & GSAP selesai (sekitar 500ms), baru proses DataTable-nya
+    setTimeout(() => {
+        if ($.fn.DataTable.isDataTable('#table-bangunan-master')) {
+            const table = $('#table-bangunan-master').DataTable();
+            
+            // Lakukan pencarian otomatis berdasarkan Kode Aset
+            table.search(kodeAset).draw();
+            
+            // Scroll layar perlahan ke arah tabel (-120px agar judul tabel tidak tertutup navbar atas)
+            $('html, body').animate({
+                scrollTop: $("#filter-kategori-btn").offset().top - 120
+            }, 800);
+            
+            // [Opsional] Memberi efek kedip kuning/hijau di area tabel agar user langsung fokus
+            const tableContainer = $('#table-bangunan-master').closest('.card');
+            tableContainer.css({'transition': 'box-shadow 0.3s', 'box-shadow': '0 0 15px rgba(25, 135, 84, 0.8)'});
+            setTimeout(() => {
+                tableContainer.css('box-shadow', '');
+            }, 2500);
+
+        } else {
+            console.warn("Tabel #table-bangunan-master belum diinisialisasi.");
+        }
+    }, 600); // Jeda 600ms wajib ada agar elemen HTML selesai digambar sebelum di-scroll
+}
+
+$(document).ready(function() {
+    // 1. Inisialisasi DataTable untuk Saluran
+   if ($('#table-saluran-master').length) {
+        var tableSaluranMaster = $('#table-saluran-master').DataTable({
+            "pageLength": 5,
+            
+            "dom": "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'B>>" +
+                   "<'row'<'col-sm-12'tr>>" +
+                   "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+                   
+            // PERUBAHAN: Tombol Hitam Putih (Monochrome)
+            "buttons": [
+                { extend: 'copy', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-copy"></i> Copy' },
+                { extend: 'excel', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-file-excel"></i> Excel' },
+                { extend: 'pdf', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-file-pdf"></i> PDF' },
+                { extend: 'print', className: 'btn btn-sm btn-outline-dark', text: '<i class="fas fa-print"></i> Print' }
+            ],
+
+            "columnDefs": [
+                { "targets": [6, 7, 8, 9], "visible": false, "searchable": false }, 
+                { "targets": [10], "orderable": false }
+            ],
+            
+            "order": [[2, "asc"], [4, "desc"]],
+
+            "language": {
+                "search": "Cari Saluran:",
+                "lengthMenu": "Tampilkan _MENU_ data",
+                "info": "Menampilkan _START_ sampai _END_ dari _TOTAL_ saluran",
+                "infoEmpty": "Tidak ada data saluran",
+                "paginate": {
+                    "first": "Pertama",
+                    "last": "Terakhir",
+                    "next": "Selanjutnya",
+                    "previous": "Sebelumnya"
+                }
+            },
+
+            "initComplete": function () {
+                var api = this.api();
+
+                // Isi otomatis dropdown D.I.
+                api.column(3).data().unique().sort().each(function (d, j) {
+                    if (d && d !== "-") {
+                        $('#filter-di-saluran').append('<option value="' + d + '">' + d + '</option>');
+                    }
+                });
+
+                // PERUBAHAN: Perintah search "Primer" dihapus. 
+                // Sekarang semua data muncul, tapi otomatis di-sorting berdasarkan Jenis Saluran.
+            },
+
+            "drawCallback": function(settings) {
+                initAllTooltips(); 
+            }
+        });
+
+        tableSaluranMaster.on('order.dt search.dt', function () {
+            let i = 1;
+            tableSaluranMaster.cells(null, 0, { search: 'applied', order: 'applied' }).every(function (cell) {
+                this.data(i++);
+            });
+        }).draw();
+
+        // 1. Logika Filter D.I.
+        $('#filter-di-saluran').on('change', function () {
+            var val = $.fn.dataTable.util.escapeRegex($(this).val());
+            tableSaluranMaster.column(3).search(val ? '^' + val + '$' : '', true, false).draw();
+        });
+
+        // 2. Logika Sorting Kondisi (Prioritas)
+        $('#sort-kondisi-saluran').on('change', function () {
+            var columnIdx = $(this).val(); 
+            if (columnIdx) {
+                tableSaluranMaster.order([columnIdx, 'desc']).draw();
+            } else {
+                // Jika reset, kembalikan sorting ke Jenis Saluran (Kolom 2)
+                tableSaluranMaster.order([2, 'asc']).draw();
+            }
+        });
+    }
+});
+
+// Aktifkan Bootstrap Tooltip untuk menampilkan Meteran saat Progress Bar di-hover
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Ambil semua elemen card yang punya class 'card-stats'
+    const statCards = document.querySelectorAll('.card-stats');
+
+    statCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // 1. Hapus class 'card-active' dari semua card statistik lainnya
+            statCards.forEach(c => c.classList.remove('card-active'));
+            
+            // 2. Tambahkan class 'card-active' ke card yang sedang diklik
+            this.classList.add('card-active');
+        });
+    });
+});
+
+
+$(document).on('click', '#btn-toggle-panel', function() {
+    const icon = $('#icon-toggle-panel');
+    
+    // Animasi sembunyikan/tampilkan isi panel (Slide Up/Down)
+    $('#panel-aset-body').slideToggle(300);
+    
+    // Animasi putar balik icon panah
+    if (icon.hasClass('fa-chevron-up')) {
+        icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+    } else {
+        icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+    }
+});
+
+
+function prosesUnduhGeoJSON() {
+    if (!currentGeoJSONData) {
+        alert("Data spasial tidak ditemukan untuk diunduh!");
+        return;
+    }
+
+    // Ubah JSON object ke text yang rapi
+    const dataStr = JSON.stringify(currentGeoJSONData, null, 2);
+    
+    // Buat objek file (Blob)
+    const blob = new Blob([dataStr], { type: "application/geo+json" });
+    const url = URL.createObjectURL(blob);
+
+    // Bikin link elemen sementara & trigger download
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = url;
+    
+    // Format nama file agar rapi & aman (contoh: Geometri_Sal_Induk_Cihaul.geojson)
+    const namaFileAman = currentNamaSaluran ? currentNamaSaluran.replace(/[^a-zA-Z0-9]/g, '_') : 'Saluran';
+    link.download = `Geometri_${namaFileAman}.geojson`;
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    // Hapus elemen & memory setelah selesai
+    setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    }, 100);
+}

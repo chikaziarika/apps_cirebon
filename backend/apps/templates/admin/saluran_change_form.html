@@ -36,8 +36,8 @@
             if (typeof L.Control.Fullscreen !== 'undefined') map.addControl(new L.Control.Fullscreen({ position: 'topleft' }));
             if (typeof L.Control.Geocoder !== 'undefined') L.Control.geocoder({ position: 'topleft', placeholder: 'Cari lokasi...', defaultMarkGeocode: true }).addTo(map);
 
-            var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' });
-            var googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] });
+            var osm = L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', { attribution: '&copy; Google Maps',maxZoom: 19, attribution: '© OSM' });
+            var googleSat = L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', { attribution: '&copy; Google Maps', maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] });
             L.control.layers({ "Peta Jalan (OSM)": osm, "Google Satellite": googleSat }).addTo(map);
             osm.addTo(map); 
 

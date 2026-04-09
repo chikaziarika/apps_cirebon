@@ -1,0 +1,89 @@
+
+    /* Styling Panel Utama */
+    .custom-map-panel {
+        background: rgba(255, 255, 255, 0.95) !important;
+        padding: 10px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+        width: 300px !important; /* Lebar diperbaiki agar teks muat */
+        max-height: 55vh !important;
+        display: flex;
+        flex-direction: column;
+        pointer-events: auto;
+        margin-top: 10px !important; /* Memberi jarak dari dropdown di atasnya */
+        z-index: 1000 !important;
+    }
+
+    /* Styling Tab Navigasi */
+    .custom-map-panel .nav-pills .nav-link {
+        font-size: 0.75rem !important;
+        padding: 6px 0 !important;
+        margin: 0 2px !important;
+        color: #0d3b66 !important;
+        background-color: #f1f5f9 !important;
+        border-radius: 4px !important;
+        font-weight: 600 !important;
+    }
+    .custom-map-panel .nav-pills .nav-link.active {
+        background-color: #0d3b66 !important;
+        color: #ffffff !important;
+    }
+
+    /* Styling Kotak Pencarian */
+    .custom-map-panel #map-search-input {
+        font-size: 0.8rem !important;
+        padding: 6px 10px !important;
+        border: 1px solid #ccc !important;
+    }
+
+    /* Styling List Item */
+    .custom-map-panel .list-group {
+        overflow-y: auto !important;
+        flex-grow: 1 !important;
+        padding-right: 5px !important;
+    }
+    .custom-map-panel .list-group-item {
+        background-color: #ffffff !important;
+        border: 1px solid #e9ecef !important;
+        border-radius: 4px !important;
+        margin-bottom: 4px !important;
+        padding: 8px !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+    }
+    .custom-map-panel .list-group-item:hover {
+        background-color: #f8f9fa !important;
+        border-left: 4px solid #1cc88a !important; /* Garis hijau saat dihover */
+    }
+
+    /* Scrollbar minimalis */
+    .custom-map-panel .list-group::-webkit-scrollbar { width: 4px; }
+    .custom-map-panel .list-group::-webkit-scrollbar-thumb { background: #b0c4de; border-radius: 4px; }
+
+    /* CSS Tambahan untuk Pagination Panel */
+    .custom-map-panel .tab-pane {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .custom-map-panel .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 5px;
+        background: #f8f9fa;
+        border-top: 1px solid #ddd;
+        font-size: 0.7rem;
+    }
+    .custom-map-panel .pagination-btn {
+        padding: 2px 8px;
+        border: 1px solid #ccc;
+        background: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+        color: #0d3b66;
+    }
+    .custom-map-panel .pagination-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }

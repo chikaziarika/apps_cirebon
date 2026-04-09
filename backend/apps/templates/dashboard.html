@@ -3,38 +3,14 @@
 {% block content %}
 <div class="gsap-container"> 
     {% if user.is_authenticated %}
-        {% comment %} <div class="gsap-nav">
-            <div class="nav-dot active" data-index="0">
-                <span class="nav-label"><i class="fa-solid fa-chart-line"></i> Ringkasan</span>
-            </div>
-            <div class="nav-dot" data-index="1">
-                <span class="nav-label"><i class="fa-solid fa-pie-chart"></i> Analisis</span>
-            </div>
-            <div class="nav-dot" data-index="2">
-                <span class="nav-label"><i class="fa-solid fa-list-check"></i> Detail DI</span>
-            </div>
-        </div> {% endcomment %}
-
-
-
         <section id="section1" class="gsap-section">
             <div class="container-fluid">
-                {% comment %} <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="fw-bold text-primary mb-0">I. Ringkasan Data Irigasi</h4>
-                    <div class="d-flex align-items-center">
-                        <label class="me-2 fw-bold small">Tahun Kegiatan:</label>
-                        <select class="form-select form-select-sm" style="width: 120px;">
-                            <option value="2024" selected>2024</option>
-                            <option value="2023">2023</option>
-                            <option value="2022">2022</option>
-                        </select>
-                    </div>
-                </div> {% endcomment %}
 
+                
                 <ul class="nav nav-tabs mb-3" id="irigasiTab" role="tablist">
                     <li class="nav-item" role="presentation" onclick="backToRingkasan()">
                         <button class="nav-link active fw-bold" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart-pane" type="button" role="tab">
-                            <i class="bi bi-graph-up me-1"></i> Komposisi Luasan
+                            <i class="bi bi-graph-up me-1"></i> Database Irigasi
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -42,11 +18,6 @@
                             <i class="bi bi-card-checklist me-1"></i> Peta Irigasi
                         </button>
                     </li>
-                    {% comment %} <li class="nav-item" role="presentation">
-                        <button class="nav-link  fw-bold" id="table-tab" data-bs-toggle="tab" data-bs-target="#table-pane" type="button" role="tab">
-                            <i class="bi bi-table me-1"></i> Data Daerah Irigasi
-                        </button>
-                    </li> {% endcomment %}
                 </ul>
 
                 <div class="tab-content" id="irigasiTabContent">
@@ -63,7 +34,7 @@
                                             <div id="map-keseluruhan" style="height: 75vh; width: 100%;"></div>
                                            
                                             <div id="peta-info-box" class="card shadow border-primary position-absolute" 
-                                                style="bottom: 10px; left: 10px; z-index: 1000; width: 280px; display: none; background: rgba(255,255,255,0.95);">
+                                                style="bottom: 10px;right: 5em;z-index: 1000;width: 280px;background: rgba(255, 255, 255, 0.95);">
                                                 <div class="card-header bg-primary text-white py-1 d-flex justify-content-between align-items-center">
                                                     <small class="fw-bold"><i class="fa-solid fa-circle-info me-1"></i> Atribut D.I</small>
                                                     <button id="close-info-btn" type="button" class="btn-close btn-close-white" style="font-size: 0.6rem;" onclick="$('#peta-info-box').hide()"></button>
@@ -94,7 +65,7 @@
                                                 </div>
                                             </div>
 
-                                            <div class="position-absolute" style="top: 10px; left: 10px; z-index: 1000; width: 250px;">
+                                            <div class="position-absolute" style="top: 10px;left: 10px;z-index: 1000;width: 250px;transform: translateX(64rem);">
                                                 <select id="filter-di" class="form-select shadow-sm border-primary">
                                                     <option value="">-- Pilih Daerah Irigasi --</option>
                                                 </select>
@@ -126,11 +97,10 @@
                                                     <a href="javascript:void(0)" class="view-detail text-decoration-none" 
                                                         data-id="{{ di.id }}"  
                                                         data-nama="{{ di.nama_di }}"
-                                                        data-sumber="{{ di.sumber_air|default:'-' }}"
-                                                        data-bendung="{{ di.bendung|default:'-' }}"
+                                                        data-sumber="{{ di.js_sumber }}"
+                                                        data-bendung="{{ di.js_bendung }}"
                                                         data-permen="{{ di.luas_baku_permen|default:0 }}"
                                                         data-onemap="{{ di.luas_baku_onemap|default:0 }}"
-                                                        
                                                         data-p_baik="{{ di.primer_baik|default:0 }}" 
                                                         data-p_rr="{{ di.primer_rr|default:0 }}" 
                                                         data-p_rb="{{ di.primer_rb|default:0 }}" 
@@ -141,7 +111,12 @@
                                                         data-s_rr="{{ di.sekunder_rr|default:0 }}" 
                                                         data-s_rb="{{ di.sekunder_rb|default:0 }}" 
                                                         data-s_napas="{{ di.sekunder_bap|default:0 }}"
-                                                        
+                                                        data-p_sekunder="{{ di.panjang_sekunder|default:0 }}"
+                                                        data-t_baik="{{ di.tersier_baik|default:0 }}" 
+                                                        data-t_rr="{{ di.tersier_rr|default:0 }}" 
+                                                        data-t_rb="{{ di.tersier_rb|default:0 }}" 
+                                                        data-t_bap="{{ di.tersier_bap|default:0 }}"
+                                                        data-p_tersier="{{ di.panjang_tersier|default:0 }}"
                                                         data-pt_baik="{{ di.pintu_baik|default:0 }}" 
                                                         data-pt_rr="{{ di.pintu_rr|default:0 }}" 
                                                         data-pt_rb="{{ di.pintu_rb|default:0 }}"
@@ -165,22 +140,26 @@
 
                     <div class="tab-pane fade show active" id="chart-pane" role="tabpanel" tabindex="0">
                         <div class="row g-3 mb-4">
-                            <div class="col-md-3" style="cursor: pointer;" onclick="showDrillDownTotalDI()">
-                                <div class="card card-stats bg-primary text-white border-0 shadow-sm h-100">
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-primary text-white border-0 shadow-sm h-100" style="cursor: pointer;" onclick="showDrillDownTotalDI()">
                                     <div class="card-body">
-                                        <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Jumlah D.I.</small>
-                                        <h2 class="fw-bold mb-0">{{ total_di }}</h2>
-                                        <span class="small">Daerah Irigasi</span>
-                                        <i class="fa-solid fa-map-location-dot stats-icon opacity-25"></i>
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <small class="opacity-75 d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Jumlah D.I.</small>
+                                                <h2 class="fw-bold mb-0">{{ total_di }}</h2>
+                                                <span class="small">Daerah Irigasi</span>
+                                            </div>
+                                            <i class="fa-solid fa-map-location-dot fa-2x opacity-25"></i>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="col-md-3" style="cursor: pointer;" onclick="showDrillDownLuas()">
-                                <div class="card card-stats bg-success text-white border-0 shadow-sm h-100">
-                                    <div class="card-body p-3">
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-success text-white border-0 shadow-sm h-100 " style="cursor: pointer;" onclick="showDrillDownLuas()">
+                                    <div class="card-body p-3 ">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">Luas Daerah Irigasi (Ha)</small>
+                                            <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">Luas D.I. (Ha)</small>
                                             <i class="fa-solid fa-seedling opacity-50"></i>
                                         </div>
                                         <div class="row text-center g-0">
@@ -190,7 +169,7 @@
                                             </div>
                                             <div class="col-4 border-end border-white border-opacity-25">
                                                 <small class="d-block opacity-75" style="font-size: 0.65rem;">Potensial</small>
-                                                <h5 class="fw-bold mb-0">{{ total_luas_potensial|default:"0"|floatformat:0 }}</h5>
+                                                <h5 class="fw-bold mb-0">{{ total_luas_permen|default:"0"|floatformat:0 }}</h5>
                                             </div>
                                             <div class="col-4">
                                                 <small class="d-block opacity-75" style="font-size: 0.65rem;">Fungsional</small>
@@ -201,55 +180,56 @@
                                 </div>
                             </div>
 
-                            
-                            <div class="col-md-3" style="cursor: pointer;" onclick="showDrillDownSebaran()">
-                                <div class="card card-stats bg-primary text-white border-0 shadow-sm h-100">
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-info text-white border-0 shadow-sm h-100" style="cursor: pointer;" onclick="showDrillDownSebaran()">
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">Aset Saluran (M)</small>
+                                            <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">Aset Saluran (m)</small>
                                             <i class="fa-solid fa-water opacity-50"></i>
                                         </div>
-                                        <div class="row text-center mb-1 g-0">
-                                            <div class="col-8 border-end border-white border-opacity-25"><small style="font-size: 0.6rem;" class="fw-bold">PEMBAWA</small></div>
-                                            <div class="col-4"><small style="font-size: 0.6rem;" class="fw-bold">PEMBUANG</small></div>
-                                        </div>
-                                        <div class="row text-center g-0 border-top border-white border-opacity-25 pt-1">
+                                        
+                                        <div class="row text-center g-0 border-top border-white border-opacity-25 pt-2">
                                             <div class="col-4 border-end border-white border-opacity-25">
-                                                <small class="d-block opacity-75" style="font-size: 0.6rem;">Primer</small>
-                                                <h6 class="fw-bold mb-0">{{ primer_m|default:"0"|floatformat:0 }}</h6>
+                                                <small class="d-block opacity-75 text-truncate px-1" style="font-size: 0.55rem; font-weight: bold;">INDUK</small>
+                                                <h6 class="fw-bold mb-0" style="font-size: 1.2rem;">{{ total_primer|default:"0"|floatformat:0 }}</h6>
                                             </div>
                                             <div class="col-4 border-end border-white border-opacity-25">
-                                                <small class="d-block opacity-75" style="font-size: 0.6rem;">Sekunder</small>
-                                                <h6 class="fw-bold mb-0">{{ sekunder_m|default:"0"|floatformat:0 }}</h6>
+                                                <small class="d-block opacity-75 text-truncate px-1" style="font-size: 0.55rem; font-weight: bold;">SEKUNDER</small>
+                                                <h6 class="fw-bold mb-0" style="font-size: 1.2rem;">{{ total_sekunder|default:"0"|floatformat:0 }}</h6>
                                             </div>
                                             <div class="col-4">
-                                                <small class="d-block opacity-75" style="font-size: 0.6rem;">Pembuang</small>
-                                                <h6 class="fw-bold mb-0">{{ data_jaringan.p.3|add:data_jaringan.s.3|default:"0"|floatformat:0 }}</h6>
+                                                <small class="d-block opacity-75 text-truncate px-1" style="font-size: 0.55rem; font-weight: bold;">TERSIER</small>
+                                                <h6 class="fw-bold mb-0" style="font-size: 1.2rem;">{{ total_tersier|default:"0"|floatformat:0 }}</h6>
                                             </div>
                                         </div>
+
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="col-md-3" style="cursor: pointer;" onclick="showDrillDownDistribusi()">
-                                <div class="card card-stats bg-warning text-dark border-0 shadow-sm h-100">
+                            <div class="col-md-3">
+                                <div class="card card-stats bg-warning text-dark border-0 shadow-sm h-100" style="cursor: pointer;" onclick="showDrillDownDistribusi()">
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">Aset Bangunan (Unit)</small>
                                             <i class="fa-solid fa-faucet opacity-50"></i>
                                         </div>
                                         <div class="row text-center g-0">
-                                            <div class="col-4 border-end border-dark border-opacity-10">
+                                            <div class="col-3 border-end border-dark border-opacity-10">
                                                 <small class="d-block opacity-75" style="font-size: 0.65rem;">Bendung</small>
-                                                <h5 class="fw-bold mb-0">{{ total_di|default:"0" }}</h5>
+                                                <h5 class="fw-bold mb-0">{{ jml_bendung|default:"0" }}</h5>
                                             </div>
-                                            <div class="col-4 border-end border-dark border-opacity-10">
+                                            <div class="col-3 border-end border-dark border-opacity-10">
                                                 <small class="d-block opacity-75" style="font-size: 0.65rem;">Pintu</small>
-                                                <h5 class="fw-bold mb-0">{{ total_pintu|default:"0" }}</h5>
+                                                <h5 class="fw-bold mb-0">{{ jml_pintu|default:"0" }}</h5>
                                             </div>
-                                            <div class="col-4">
+                                            <div class="col-3 border-end border-dark border-opacity-10">
                                                 <small class="d-block opacity-75" style="font-size: 0.65rem;">Penunjang</small>
-                                                <h5 class="fw-bold mb-0">{{ pintu_baik_total|default:"0" }}</h5>
+                                                <h5 class="fw-bold mb-0">{{ jml_penunjang|default:"0" }}</h5>
+                                            </div>
+                                            <div class="col-3">
+                                                <small class="d-block opacity-75" style="font-size: 0.65rem;">Lain</small>
+                                                <h5 class="fw-bold mb-0">{{ jml_lainnya|default:"0" }}</h5>
                                             </div>
                                         </div>
                                     </div>
@@ -261,9 +241,68 @@
                         <div id="komposisi-wrapper">
                             <div id="view-detail-di"> 
                                 <div class="card shadow-sm border-0 p-4">
+                                    
                                     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
-                                        <h5 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-list-check me-2"></i>Detail Daerah Irigasi</h5>
+                                        <h5 class="fw-bold mb-0 text-primary">
+                                            <i class="fa-solid fa-list-check me-2"></i>Detail Daerah Irigasi
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-info rounded-pill px-3 shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#petunjukDetailDI" aria-expanded="false" aria-controls="petunjukDetailDI">
+                                            <i class="fa-solid fa-circle-question me-1"></i> Cara Penggunaan
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="collapse show mb-4" id="petunjukDetailDI">
+                                        <div class="card card-body bg-light border-info-subtle shadow-sm">
+                                            <div class="d-flex align-items-start">
+                                                <div class="me-3 mt-1 text-info" style="font-size: 2rem;">
+                                                    <i class="fa-solid fa-hand-pointer fa-beat-fade"></i>
+                                                </div>
+                                                <div class="w-100">
+                                                    <h6 class="fw-bold text-dark mb-1">Klik Nama Daerah Irigasi untuk Membuka Panel Rahasia!</h6>
+                                                    <p class="text-muted small mb-2">Pilih dan klik salah satu nama Daerah Irigasi (berwarna biru) pada tabel di bawah untuk membuka <strong>Dashboard Eksklusif D.I.</strong> yang memuat 4 informasi lengkap:</p>
+                                                    
+                                                    <div class="row g-2 small text-dark mb-3">
+                                                        <div class="col-md-3">
+                                                            <div class="p-2 border rounded bg-white h-100 border-start border-4 border-primary">
+                                                                <i class="fa-solid fa-file-invoice text-primary mb-1"></i><br>
+                                                                <strong>1. Profil & Inventarisasi</strong><br>
+                                                                <span class="text-muted" style="font-size:0.75rem;">Info sumber air, luasan baku, dan rekap total panjang saluran.</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="p-2 border rounded bg-white h-100 border-start border-4 border-success">
+                                                                <i class="fa-solid fa-map-location-dot text-success mb-1"></i><br>
+                                                                <strong>2. Peta Geospasial D.I.</strong><br>
+                                                                <span class="text-muted" style="font-size:0.75rem;">Visualisasi titik aset bangunan dan garis jalur saluran (interaktif).</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="p-2 border rounded bg-white h-100 border-start border-4 border-warning">
+                                                                <i class="fa-solid fa-water text-warning mb-1"></i><br>
+                                                                <strong>3. Inventaris Saluran</strong><br>
+                                                                <span class="text-muted" style="font-size:0.75rem;">Daftar lengkap saluran pembawa (Primer, Sekunder, dll) di D.I. tersebut.</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="p-2 border rounded bg-white h-100 border-start border-4 border-danger">
+                                                                <i class="fa-solid fa-bridge text-danger mb-1"></i><br>
+                                                                <strong>4. Inventaris Bangunan</strong><br>
+                                                                <span class="text-muted" style="font-size:0.75rem;">Daftar aset fisik bangunan, pintu air, beserta kondisinya.</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="alert alert-warning py-2 px-3 mb-0 d-flex align-items-center" style="font-size: 0.75rem; border-left: 4px solid #ffc107;">
+                                                        <i class="fa-solid fa-magnifying-glass-minus fs-5 text-warning me-3"></i>
+                                                        <div>
+                                                            <strong>💡 Tips Tampilan Optimal:</strong> Untuk pengalaman visual yang lebih proporsional dan menarik, disarankan mengatur <em>zoom</em> browser Anda ke <strong>80%</strong> (Tekan tombol <kbd>Ctrl</kbd> + <kbd>-</kbd> 2x pada keyboard Anda).
+                                                        </div>
+                                                    </div>
+
+                                                </div>
+                                            </div>
                                         </div>
+                                    </div>
                                     
                                     <div class="table-responsive">
                                         <table class="table table-hover w-100" id="tableDrillDI">
@@ -280,8 +319,24 @@
                                                 <tr>
                                                     <td class="text-center">{{ forloop.counter }}</td>
                                                     <td class="fw-bold">
-                                                        <a href="javascript:void(0)" class="view-detail text-decoration-none" data-id="{{ di.id }}" data-nama="{{ di.nama_di }}">
-                                                            {{ di.nama_di }}
+                                                        <a href="javascript:void(0)" 
+                                                            class="view-detail text-primary text-decoration-none d-block w-100" 
+                                                            style="transition: color 0.3s;"
+                                                            onmouseover="this.classList.replace('text-primary', 'text-success')" 
+                                                            onmouseout="this.classList.replace('text-success', 'text-primary')"
+                                                            data-id="{{ di.id }}"
+                                                            data-nama="{{ di.nama_di }}"
+                                                            data-sumber="{{ di.sumber_air|default:'-' }}"
+                                                            data-bendung="{{ di.bendung|default:'-' }}"
+                                                            data-permen="{{ di.luas_baku_permen|default:0 }}"
+                                                            data-onemap="{{ di.luas_baku_onemap|default:0 }}"
+                                                            data-p_primer="{{ di.js_p_total|default:0 }}" 
+                                                            data-p_sekunder="{{ di.js_s_total|default:0 }}"
+                                                            data-pt_baik="{{ di.pintu_baik|default:0 }}"
+                                                            data-pt_rr="{{ di.pintu_rr|default:0 }}"
+                                                            data-pt_rb="{{ di.pintu_rb|default:0 }}"
+                                                            data-json='{{ di.to_json|safe }}'> 
+                                                            <i class="fa-solid fa-up-right-from-square me-1" style="font-size:0.75rem; opacity:0.7;"></i> {{ di.nama_di }}
                                                         </a>
                                                     </td>
                                                     <td>{{ di.bendung|default:'-' }}</td>
@@ -414,32 +469,50 @@
                                     </div>
 
                                     <div class="carousel-inner"> 
+                                        
                                         <div class="carousel-item active">
                                             <div class="px-md-3">
+                                                
+                                                <div class="alert alert-light border-start border-4 border-primary mb-4 py-2 px-3 shadow-sm">
+                                                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.85rem;"><i class="fa-solid fa-circle-info text-primary me-2"></i>Informasi Analisis (Slide 1)</h6>
+                                                    <ul class="mb-0 text-muted" style="font-size: 0.75rem; padding-left: 1.2rem;">
+                                                        <li class="mb-1"><strong>Performa Luas Layanan:</strong> Menganalisis deviasi antara Realisasi Fungsional (Bar) terhadap Ambang Batas Maksimal Target Baku Permen PU (Garis). Fitur filter Top 10 terendah akan aktif sepenuhnya setelah modul IKSI terintegrasi. Saat ini menampilkan 4 D.I. sampel.</li>
+                                                        <li><strong>Perbandingan Luasan DI:</strong> Simulasi modul *Decision Support System* (DSS) untuk membandingkan kinerja dua Daerah Irigasi secara komparatif (Kelak akan digerakkan oleh matriks penilaian IKSI).</li>
+                                                    </ul>
+                                                </div>
+
                                                 <div class="row g-4">
                                                     <div class="col-md-6 border-end">
                                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                                             <h6 class="fw-bold text-muted text-uppercase mb-0">
                                                                 <i class="fa-solid fa-chart-bar me-2 text-primary"></i>Performa Luas Layanan per D.I.
                                                             </h6>
-                                                            <select id="filterLimitChart" class="form-select form-select-sm" style="width: 140px;">
-                                                                <option value="10">Top 10 Terendah</option>
-                                                                <option value="all">Tampilkan Semua (73)</option>
+                                                            <select id="filterChartLuas" class="form-select form-select-sm w-auto fw-bold" onchange="applyLuasFilter(this.value)">
+                                                                <option value="top10_rendah" selected>Top 10 Realisasi Terendah</option>
+                                                                <option value="semua">Tampilkan Semua D.I.</option>
                                                             </select>
+                                                            <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="toggleFullScreen('chartContainer')">
+                                                                <i class="fa-solid fa-expand"></i> Fullscreen
+                                                            </button>
                                                         </div>
                                                         
                                                         <div style="width: 100%; overflow-x: auto; background: #fdfdfd; border-radius: 8px; padding: 10px;">
-                                                            <div id="chartContainer" style="height: 450px; min-width: 800px;">
+                                                            <div id="chartContainer" style="height: 380px; min-width: 800px;">
                                                                 <canvas id="chartDetailLuasBar"></canvas>
                                                             </div>
                                                         </div>
-                                                        <small class="text-muted mt-2 d-block italic">* Geser ke kanan untuk melihat data lainnya</small>
+                                                        <small class="text-muted mt-2 d-block fst-italic">* Geser ke kanan untuk melihat data lainnya</small>
                                                     </div>
 
                                                     <div class="col-md-6">
-                                                        <h6 class="text-center fw-bold text-muted mb-4 text-uppercase">
-                                                            <i class="fa-solid fa-code-compare me-2 text-danger"></i>Perbandingan Prioritas Penanganan
-                                                        </h6>
+                                                        <div class="d-flex justify-content-between align-items-center mb-4">
+                                                            <h6 class="fw-bold text-muted mb-0 text-uppercase">
+                                                                <i class="fa-solid fa-code-compare me-2 text-danger"></i>Perbandingan Luasan DI
+                                                            </h6>
+                                                            <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="toggleFullScreen('containerPerbandingan')">
+                                                                <i class="fa-solid fa-expand"></i> Fullscreen
+                                                            </button>
+                                                        </div>
                                                         
                                                         <div class="row g-2 mb-4 bg-light p-3 rounded-3 shadow-sm mx-1">
                                                             <div class="col-md-5">
@@ -463,57 +536,85 @@
                                                             </div>
                                                         </div>
 
-                                                        <div style="height: 300px;">
+                                                        <div id="containerPerbandingan" style="height: 250px; width: 100%; background-color: #ffffff; padding: 10px; border-radius: 8px;">
                                                             <canvas id="chartPerbandinganPrioritas"></canvas>
                                                         </div>
                                                         
-                                                        <div id="rekomendasiKeputusan" class="mt-4 p-3 bg-white shadow-sm rounded-3 border-start border-4 border-danger" style="display:none;">
-                                                            <div class="d-flex align-items-center">
-                                                                <div class="flex-shrink-0 me-3">
-                                                                    <i class="fa-solid fa-triangle-exclamation text-danger fa-2x"></i>
+                                                            {% comment %} <div id="rekomendasiKeputusan" class="mt-4 p-3 bg-white shadow-sm rounded-3 border-start border-4 border-danger" style="display:none;">
+        
+                                                                <div class="position-relative overflow-hidden">
+                                                                    <i class="fa-solid fa-gears position-absolute text-secondary" style="font-size: 7rem; opacity: 0.05; right: -15px; bottom: -15px;"></i>
+                                                                    
+                                                                    <div class="position-relative" style="z-index: 1;">
+                                                                        <div class="d-flex align-items-center mb-2">
+                                                                            <div class="flex-shrink-0 me-2">
+                                                                                <i class="fa-solid fa-robot text-danger fa-lg"></i>
+                                                                            </div>
+                                                                            <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Modul Komparasi Daerah Irigasi Terpilih</h6>
+                                                                        </div>
+                                                                        
+                                                                        <p class="text-muted mb-3" style="font-size: 0.78rem; line-height: 1.5;">
+                                                                            Modul ini membandingkan data teknis dua D.I. secara otomatis. Saat ini sistem sedang menyiapkan algoritma untuk menghitung <strong>Indeks Kinerja Sistem Irigasi (IKSI)</strong> berdasarkan parameter real-time di lapangan.
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div class="row g-2 position-relative" style="z-index: 1;">
+                                                                        <div class="col-md-12">
+                                                                            <div class="d-flex align-items-start border border-success-subtle bg-light p-2 rounded h-100">
+                                                                                <i class="fa-solid fa-chart-line text-success mt-1 me-2" style="font-size: 0.8rem;"></i>
+                                                                                <div>
+                                                                                    <h6 class="mb-1 fw-bold text-dark" style="font-size: 0.7rem;">Estimasi IKSI</h6>
+                                                                                    <p class="mb-0 text-muted" style="font-size: 0.65rem;">Perhitungan otomatis berdasarkan bobot 6 pilar (Prasarana Fisik, Produktivitas, dll).</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top border-light">
+                                                                        <div class="spinner-border spinner-border-sm text-danger me-2" role="status" style="width: 0.7rem; height: 0.7rem; border-width: 0.15em;"></div>
+                                                                        <span class="text-danger fw-bold fst-italic" style="font-size: 0.65rem;">Sinkronisasi Parameter Lapangan...</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div class="flex-grow-1">
-                                                                    <h6 class="mb-1 fw-bold">Rekomendasi Prioritas</h6>
-                                                                    <p class="mb-0 small">
-                                                                        Segera tangani <span id="namaDIPrioritas" class="badge bg-danger">-</span> 
-                                                                        karena kehilangan luas layanan sebesar <span id="valGap" class="fw-bold">-</span>%.
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                            </div> {% endcomment %}
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        
-
                                         <div class="carousel-item">
-                                            <div class="px-md-4">
-                                                <div class="text-center mb-4">
-                                                    <h5 class="fw-bold text-primary mb-1" id="title-statistik">DATA PERMEN PU 14/2015</h5>
-                                                    <p class="text-muted small">Kabupaten Cirebon</p>
+                                            <div class="px-md-4" id="area-pie-proporsi" style="background-color: #ffffff; padding-top: 15px; padding-bottom: 15px; border-radius: 8px;">
+                                                
+                                                <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                                                    <div class="text-start">
+                                                        <h5 class="fw-bold text-primary mb-1" id="title-statistik">DATA PERMEN PU 14/2015</h5>
+                                                        <p class="text-muted small mb-0">Kabupaten Cirebon</p>
+                                                    </div>
+                                                    <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="toggleFullScreen('area-pie-proporsi')">
+                                                        <i class="fa-solid fa-expand"></i> Fullscreen
+                                                    </button>
+                                                </div>
+
+                                                <div class="alert alert-light border-start border-4 border-warning mb-4 py-2 px-3 shadow-sm">
+                                                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.85rem;"><i class="fa-solid fa-circle-info text-warning me-2"></i>Informasi Analisis (Slide 2)</h6>
+                                                    <ul class="mb-0 text-muted" style="font-size: 0.75rem; padding-left: 1.2rem;">
+                                                        <li class="mb-1"><strong>Chart Baku & Potensial:</strong> Menampilkan rangkuman persentase murni dari seluruh Luas Baku/Potensial setiap D.I. berdasarkan parameter yang dipilih (Permen PU / OneMap Geospasial).</li>
+                                                        <li><strong>Chart Fungsional:</strong> Menampilkan realisasi area yang terairi secara faktual. Segmen <strong>Belum Terairi</strong> merupakan deviasi/akumulasi gap luasan dari D.I. yang tidak memenuhi target luasan baku.</li>
+                                                    </ul>
                                                 </div>
 
                                                 <div id="container-permen">
                                                     <div class="row g-3">
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi</h6>
-                                                                <div style="height: 250px;"><canvas id="chartDiPermen"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Baku (Permen PU)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartDiPermen"></canvas></div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi (PAI)</h6>
-                                                                <div style="height: 250px;"><canvas id="chartPaiPermen"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Potensial (Permen PU)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartPaiPermen"></canvas></div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi (IKSI)</h6>
-                                                                <div style="height: 250px;"><canvas id="chartIksiPermen"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Fungsional (Permen PU)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartIksiPermen"></canvas></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -521,22 +622,16 @@
                                                 <div id="container-onemap" style="display: none;">
                                                     <div class="row g-3">
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100 border-top border-primary border-4">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi</h6>
-                                                                <div style="height: 250px;"><canvas id="chartDiOnemap"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Baku (OneMap)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartDiOnemap"></canvas></div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100 border-top border-primary border-4">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi (PAI)</h6>
-                                                                <div style="height: 250px;"><canvas id="chartPaiOnemap"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Potensial (OneMap)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartPaiOnemap"></canvas></div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="card border-0 shadow-sm p-3 text-center h-100 border-top border-primary border-4">
-                                                                <h6 class="fw-bold text-muted mb-3 small text-uppercase">Proporsi Luasan Daerah Irigasi (IKSI)</h6>
-                                                                <div style="height: 250px;"><canvas id="chartIksiOnemap"></canvas></div>
-                                                            </div>
+                                                            <h6 class="fw-bold text-muted mb-3 small text-uppercase text-center">Luas Fungsional (OneMap)</h6>
+                                                            <div style="height: 250px; position: relative;"><canvas id="chartIksiOnemap"></canvas></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -553,14 +648,35 @@
                                             <div class="px-md-5">
                                                 <div class="text-center mb-3">
                                                     <h6 class="fw-bold text-muted text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">
-                                                        <i class="fa-solid fa-chart-area me-2 text-primary"></i>Proporsi Cakupan Area
+                                                        <i class="fa-solid fa-chart-area me-2 text-primary"></i>Proporsi Cakupan Area (Total Keseluruhan)
                                                     </h6>
                                                 </div>
-                                                <div style="height: 380px;">
-                                                    <canvas id="chartDetailLuasPie"></canvas>
+                                                
+                                                <div class="alert alert-light border-start border-4 border-success mb-4 py-2 px-3 shadow-sm mx-auto" style="max-width: 900px;">
+                                                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.85rem;"><i class="fa-solid fa-circle-info text-success me-2"></i>Informasi Analisis (Slide 3)</h6>
+                                                    <p class="mb-0 text-muted" style="font-size: 0.75rem; padding-left: 1.2rem;">
+                                                        Grafik komparatif tingkat makro yang menyajikan perbandingan rasio total Luas Fungsional terhadap kumulatif Luas Baku seluruh Daerah Irigasi. Chart Kiri mengevaluasi kinerja layanan irigasi berdasarkan ketetapan regulasi <strong>Permen PU 14/2015</strong>, sedangkan Chart Kanan mengevaluasi berdasarkan proyeksi spasial aktual dari <strong>OneMap Policy</strong>.
+                                                    </p>
                                                 </div>
-                                                <div class="mt-2 text-center">
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <h6 class="text-center fw-bold text-primary small mb-2">Berdasarkan Permen PU</h6>
+                                                        <div style="height: 300px;">
+                                                            <canvas id="chartDetailLuasPiePermen"></canvas>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-6">
+                                                        <h6 class="text-center fw-bold text-success small mb-2">Berdasarkan OneMap</h6>
+                                                        <div style="height: 300px;">
+                                                            <canvas id="chartDetailLuasPieOneMap"></canvas>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mt-4 text-center">
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
                                                         Data Real-time Fungsional
                                                     </span>
                                                 </div>
@@ -581,161 +697,691 @@
                             </div>
 
                             <div id="view-detail-distribusi" style="display: none; opacity: 0;">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="fw-bold mb-0" style="font-size: 1.1rem;" id="distribusi-title">Kondisi Infrastruktur Pengatur Air (Pintu)</h5>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btn-toggle-distribusi" onclick="toggleDistribusiView()">
-                                            <i class="fa-solid fa-diagram-project me-2"></i>Lihat Skema Jaringan
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="backToRingkasan()">
-                                            <i class="fas fa-arrow-left me-2"></i>Kembali
+                                
+                                <div class="card bg-primary-subtle border-0 shadow-sm mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-3 mt-4 border-bottom pb-2">
+                                        <h5 class="fw-bold mb-0 text-primary">
+                                            <i class="fa-solid fa-database me-2"></i>Direktori Pusat Data Aset & Bangunan
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-info rounded-pill px-3 shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#petunjukDirektoriAset" aria-expanded="false" aria-controls="petunjukDirektoriAset">
+                                            <i class="fa-solid fa-circle-question me-1"></i> Cara Penggunaan
                                         </button>
                                     </div>
-                                </div>
-                                
-                                <div class="position-relative" style="min-height: 450px;">
-                                    
-                                    <div id="distribusi-summary-view" class="row g-3">
-                                        <div class="col-md-5">
-                                            <div class="card shadow-sm border-0 p-3 h-100 text-center">
-                                                <small class="text-muted fw-bold text-uppercase mb-3" style="font-size: 0.75rem;">
-                                                    <i class="fa-solid fa-gauge-high me-1"></i> Health Score Alat Bagi
-                                                </small>
-                                                <div class="position-relative mb-4" style="height: 200px;">
-                                                    <canvas id="chartGaugePintu"></canvas>
-                                                    <div style="position: absolute; top: 70%; left: 50%; transform: translate(-50%, -90%); text-align: center;">
-                                                        <h2 class="fw-bold mb-0" id="scoreText">0%</h2>
-                                                        <small class="text-muted fw-bold" style="font-size: 0.6rem;">KONDISI BAIK</small>
+
+                                    <div class="collapse show mb-4" id="petunjukDirektoriAset">
+                                        <div class="card bg-light border-0 shadow-sm border-start border-4 border-primary">
+                                            <div class="card-body p-4">
+                                                
+                                                <p class="text-muted mb-4" style="font-size: 0.85rem; text-align: justify; line-height: 1.6;">
+                                                    Modul ini bertindak sebagai basis data terpusat yang memuat seluruh inventarisasi bangunan pengatur dan pembawa air di tingkat Kabupaten. Anda dapat mengelola, memantau, dan mengekspor data aset dengan memanfaatkan fitur-fitur interaktif pada tabel di bawah:
+                                                </p>
+
+                                                <div class="row g-4 small text-dark mb-2">
+                                                    <div class="col-md-6">
+                                                        <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.8;">
+                                                            <li class="mb-2">
+                                                                <i class="fa-solid fa-filter text-info me-2"></i>
+                                                                <strong>Smart Filter Dropdown:</strong> Saring pemunculan data secara instan berdasarkan spesifikasi <strong>Daerah Irigasi (D.I.)</strong> maupun tingkat <strong>Kondisi Fisik</strong> (Baik, Rusak Ringan, Rusak Berat).
+                                                            </li>
+                                                            <li class="mb-2">
+                                                                <i class="fa-solid fa-layer-group text-info me-2"></i>
+                                                                <strong>Kategorisasi Dinamis:</strong> Gunakan tombol grup navigasi untuk memilah jenis bangunan (Bendung, Pintu/Bagi, Penunjang). <br>
+                                                                <em class="ms-4 text-secondary">*Catatan: Kategori tombol ini akan terus bertambah dan berekspansi seiring dengan penambahan klasifikasi jenis aset baru.</em>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.8;">
+                                                            <li class="mb-2">
+                                                                <i class="fa-solid fa-eye text-primary me-2"></i>
+                                                                <strong>Eksplorasi Detail Aset:</strong> Klik tombol ikon <button class="btn btn-xs btn-primary rounded-circle py-0 px-1 mx-1" style="font-size: 8px;"><i class="fas fa-eye"></i></button> pada kolom <strong>Aksi</strong> untuk membedah rincian spesifikasi teknis, melihat rekaman foto lapangan, dan form penilaian kinerja.
+                                                            </li>
+                                                            <li class="mb-2">
+                                                                <i class="fa-solid fa-print text-success me-2"></i>
+                                                                <strong>Ekspor Laporan (One-Click):</strong> Unduh rekapitulasi data yang tampil di tabel secara langsung ke format <strong class="text-success">Excel</strong>, <strong class="text-danger">PDF</strong>, cetak <strong>Print</strong>, atau <strong>Copy</strong> untuk pelaporan.
+                                                            </li>
+                                                        </ul>
                                                     </div>
                                                 </div>
-                                                <div class="alert alert-info py-2" style="font-size: 0.7rem;">
-                                                    <i class="fa-solid fa-circle-info me-1"></i> Klik tombol di atas untuk melihat detail skema jaringan hulu-hilir.
+
+                                                <div class="alert alert-warning py-2 px-3 mt-3 mb-0 d-flex align-items-center shadow-sm" style="font-size: 0.75rem; border-left: 4px solid #ffc107; background-color: #fffdf5;">
+                                                    <i class="fa-solid fa-lightbulb fs-4 text-warning me-3 fa-beat-fade"></i>
+                                                    <div>
+                                                        <strong class="text-dark">💡 Tips Navigasi Data:</strong> Jika data pada tabel terasa kurang lengkap, pastikan tombol filter kategori <span class="badge bg-primary shadow-sm border border-light mx-1 px-2 py-1" style="box-shadow: 0 0 8px rgba(13, 110, 253, 0.6) !important;">Semua</span> dalam keadaan aktif/menyala (berwarna biru solid).
+                                                    </div>
+                                                </div>
+                                                
+                                            </div>
+                                        </div>
+                                    </div>
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-4 border-end border-primary-subtle">
+                                                <p class="mb-2 text-dark" style="font-size: 0.9rem;">Total <strong>{{ total_bangunan }}</strong> aset tercatat dengan rincian:</p>
+                                                <ul class="list-unstyled mb-0" style="font-size: 0.85rem;">
+                                                    <li class="mb-1">
+                                                        <i class="fa-solid fa-circle text-success me-2" style="font-size: 10px;"></i> Kondisi Baik: <strong>{{ bangunan_baik }}</strong> unit
+                                                    </li>
+                                                    <li class="mb-1">
+                                                        <i class="fa-solid fa-circle text-warning me-2" style="font-size: 10px;"></i> Rusak Ringan: <strong>{{ bangunan_rr }}</strong> unit
+                                                    </li>
+                                                    <li>
+                                                        <i class="fa-solid fa-circle text-danger me-2" style="font-size: 10px;"></i> Rusak Berat: <strong>{{ bangunan_rb }}</strong> unit
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="col-md-8">
+                                                <p class="mb-2 text-dark fw-bold" style="font-size: 0.9rem;">
+                                                    <i class="fa-solid fa-chart-line text-primary me-1"></i> Penilaian Kinerja IKSI (Sistem Pendukung Keputusan)
+                                                </p>
+                                                
+                                                <div class="p-3 bg-light rounded border border-light-subtle position-relative overflow-hidden" style="min-height: 140px;">
+                                                    <i class="fa-solid fa-gears position-absolute text-secondary" style="font-size: 8rem; opacity: 0.05; right: -20px; bottom: -20px;"></i>
+                                                    
+                                                    <p class="text-muted mb-3" style="font-size: 0.8rem; line-height: 1.5; position: relative; z-index: 1;">
+                                                        Modul ini sedang dalam tahap pengembangan. Nantinya, sistem akan secara otomatis mengakumulasi perhitungan <strong>Indeks Kinerja Sistem Irigasi (IKSI)</strong> berdasarkan data lapangan. 
+                                                    </p>
+
+                                                    <div class="row g-2 position-relative" style="z-index: 1;">
+                                                        <div class="col-md-6">
+                                                            <div class="d-flex align-items-start border border-danger-subtle bg-white p-2 rounded">
+                                                                <i class="fa-solid fa-triangle-exclamation text-danger mt-1 me-2"></i>
+                                                                <div>
+                                                                    <h6 class="mb-1 fw-bold text-dark" style="font-size: 0.75rem;">Prioritas Penanganan</h6>
+                                                                    <p class="mb-0 text-muted" style="font-size: 0.7rem;">Sistem akan menyoroti otomatis D.I. dan bangunan yang butuh rehabilitasi mendesak.</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="d-flex align-items-start border border-success-subtle bg-white p-2 rounded">
+                                                                <i class="fa-solid fa-check-double text-success mt-1 me-2"></i>
+                                                                <div>
+                                                                    <h6 class="mb-1 fw-bold text-dark" style="font-size: 0.75rem;">Indeks Kesehatan</h6>
+                                                                    <p class="mb-0 text-muted" style="font-size: 0.7rem;">Skoring performa jaringan secara real-time berdasarkan bobot Permen PU 14/2015.</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="d-flex justify-content-end align-items-center mt-3 position-relative" style="z-index: 1;">
+                                                        <div class="spinner-grow spinner-grow-sm text-primary me-2" role="status" style="width: 1rem; height: 1rem;">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <span class="text-primary fw-bold fst-italic" style="font-size: 0.75rem;">Menunggu Integrasi Modul...</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div class="col-md-7">
-                                            <div class="card shadow-sm border-0 p-3 h-100">
-                                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">
-                                                        <i class="fa-solid fa-door-closed me-1"></i> Sebaran Pintu Rusak per D.I.
-                                                    </small>
-                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 10px;">Prioritas Perbaikan</span>
+                                <div id="carouselBangunan" class="carousel slide" data-bs-touch="false" data-bs-interval="false">
+                                    <div class="carousel-inner">
+                                        
+                                        <div class="carousel-item active">
+                                            <div class="card shadow-sm border-0 p-3" style="height: auto;">
+                                                
+                                                <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center mb-3 gap-3 border-bottom pb-3">
+    
+                                                <h6 class="mb-0 fw-bold text-secondary text-nowrap">
+                                                    <i class="fas fa-list me-2"></i>Daftar Detail Aset
+                                                </h6>
+                                                
+                                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                                    
+                                                    <select id="filter-di-bangunan" class="form-select form-select-sm shadow-sm border-primary" style="width: auto; min-width: 180px;">
+                                                        <option value="">-- Filter Semua D.I. --</option>
+                                                        </select>
+                                                    
+                                                    <select id="sort-kondisi-bangunan" class="form-select form-select-sm shadow-sm border-success" style="width: auto; min-width: 180px;">
+                                                        <option value="">-- Filter Kondisi --</option>
+                                                        <option value="BAIK">Kondisi Baik</option>
+                                                        <option value="R. RINGAN">Kondisi Rusak Ringan</option>
+                                                        <option value="R. BERAT">Kondisi Rusak Berat</option>
+                                                    </select>
+
+                                                    <div class="btn-group shadow-sm" role="group" id="filter-kategori-btn">
+                                                        <button type="button" class="btn btn-sm btn-primary btn-filter-aset" data-kategori="">Semua</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary btn-filter-aset" data-kategori="Bendung">Bendung</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary btn-filter-aset" data-kategori="Pintu">Pintu/Bagi</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary btn-filter-aset" data-kategori="Penunjang">Penunjang</button>
+                                                    </div>
+
                                                 </div>
-                                                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                                                    <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
-                                                        <thead class="bg-light sticky-top">
+                                            </div>
+
+                                                <div class="table-responsive">
+                                                    <table id="table-bangunan-master" class="table table-sm table-hover align-middle w-100" style="font-size: 0.85rem;">
+                                                        <thead class="bg-light">
                                                             <tr>
+                                                                <th>No</th>
+                                                                <th>Nomenklatur Ruas</th> 
+                                                                <th>Kode - Nama Bangunan</th>
                                                                 <th>Daerah Irigasi</th>
-                                                                <th class="text-center">Baik</th>
-                                                                <th class="text-center">R. Ringan</th>
-                                                                <th class="text-center">R. Berat</th>
+                                                                <th>Saluran</th>
+                                                                <th class="d-none">KategoriAsetHidden</th> 
+                                                                <th class="text-center">Kondisi</th>
+                                                                <th class="text-center">Luas (Ha)</th>
+                                                                <th>Keterangan</th>
+                                                                <th class="text-center">Aksi</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {% for di in data_irigasi %}
-                                                                {% if di.pintu_rr > 0 or di.pintu_rb > 0 %}
-                                                                <tr>
-                                                                    <td class="fw-bold text-dark">{{ di.nama_di }}</td>
-                                                                    <td class="text-center text-success fw-bold">{{ di.pintu_baik }}</td>
-                                                                    <td class="text-center"><span class="badge bg-warning text-dark">{{ di.pintu_rr }}</span></td>
-                                                                    <td class="text-center"><span class="badge bg-danger">{{ di.pintu_rb }}</span></td>
-                                                                </tr>
+                                                            {% for b in data_bangunan %}
+                                                            <tr>
+                                                            <td>{{ forloop.counter }}</td>
+                                                            <td class="fw-bold text-primary">{{ b.bangunan.nomenklatur_ruas|default:"-" }}</td>
+                                                            <td>
+                                                                <span class="d-none">{{ b.get_kode_aset_display|default:b.kode_aset|default:"-" }}</span>
+                                                                <span class="badge border border-secondary text-secondary">{{ b.get_kode_aset_display|default:b.kode_aset|default:"-" }}</span><br>
+                                                                <b>{{ b.nama_aset_manual }}</b>
+                                                            </td>
+                                                            <td>{{ b.bangunan.daerah_irigasi.nama_di|default:"-" }}</td>
+                                                            <td>{{ b.bangunan.saluran.nama_saluran|default:"-" }}</td>
+                                                            
+                                                            
+                                                            
+                                                            <td class="d-none">{{ b.kategori_filter }}</td>
+                                                            
+                                                            <td class="text-center" data-order="{% if b.kondisi_bangunan == 'BAIK' %}1{% elif b.kondisi_bangunan == 'RR' %}2{% elif b.kondisi_bangunan == 'RB' %}3{% else %}4{% endif %}">
+                                                                {% if b.kondisi_bangunan == 'BAIK' %}
+                                                                    <span class="badge bg-success" style="min-width: 65px;">BAIK</span>
+                                                                {% elif b.kondisi_bangunan == 'RR' %}
+                                                                    <span class="badge bg-warning text-dark" style="min-width: 65px;">R. RINGAN</span>
+                                                                {% elif b.kondisi_bangunan == 'RB' %}
+                                                                    <span class="badge bg-danger" style="min-width: 65px;">R. BERAT</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-secondary" style="min-width: 65px;">{{ b.kondisi_bangunan|default:"BAP" }}</span>
                                                                 {% endif %}
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
+
+                                                            </td>
+                                                            <td class="text-center">{{ b.luas_areal|default:0 }}</td>
+                                                            <td style="max-width: 200px; white-space: normal;">
+                                                                <small class="text-muted">{{ b.keterangan|default:"-"|truncatechars:50 }}</small>
+                                                            </td>
+                                                            <td class="text-center"> 
+                                                                <button class="btn btn-sm btn-primary rounded-circle" 
+                                                                        title="Lihat Detail PAI & IKSI"
+                                                                        onclick="showDetailPaiIksi('{{ b.bangunan.id }}')"> 
+                                                                    <i class="fas fa-eye"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="carousel-item">
+                                            <div class="position-relative" style="min-height: 450px;">
+                                                <div id="distribusi-summary-view" class="row g-3">
+                                                    <div class="col-md-5">
+                                                        <div class="card shadow-sm border-0 p-3 h-100 text-center">
+                                                            <small class="text-muted fw-bold text-uppercase mb-3" style="font-size: 0.75rem;">
+                                                                <i class="fa-solid fa-gauge-high me-1"></i> Health Score Alat Bagi
+                                                            </small>
+                                                            <div class="position-relative mb-4" style="height: 200px;">
+                                                                <canvas id="chartGaugePintu"></canvas>
+                                                                <div style="position: absolute; top: 70%; left: 50%; transform: translate(-50%, -90%); text-align: center;">
+                                                                    <h2 class="fw-bold mb-0" id="scoreText">0%</h2>
+                                                                    <small class="text-muted fw-bold" style="font-size: 0.6rem;">KONDISI BAIK</small>
+                                                                </div>
+                                                            </div>
+                                                            {% comment %} <div class="alert alert-info py-2" style="font-size: 0.7rem;">
+                                                                <i class="fa-solid fa-circle-info me-1"></i> Klik tombol di atas untuk melihat detail skema jaringan hulu-hilir.
+                                                            </div> {% endcomment %}
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-md-7">
+                                                        <div class="card shadow-sm border-0 p-3 h-100">
+                                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">
+                                                                    <i class="fa-solid fa-door-closed me-1"></i> Sebaran Pintu Rusak per D.I.
+                                                                </small>
+                                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 10px;">Prioritas Perbaikan</span>
+                                                            </div>
+                                                            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                                                                <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                                                                    <thead class="bg-light sticky-top">
+                                                                        <tr>
+                                                                            <th>Daerah Irigasi</th>
+                                                                            <th class="text-center">Baik</th>
+                                                                            <th class="text-center">R. Ringan</th>
+                                                                            <th class="text-center">R. Berat</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for di in data_irigasi %}
+                                                                            {% if di.pintu_rr > 0 or di.pintu_rb > 0 %}
+                                                                            <tr>
+                                                                                <td class="fw-bold text-dark">{{ di.nama_di }}</td>
+                                                                                <td class="text-center text-success fw-bold">{{ di.pintu_baik }}</td>
+                                                                                <td class="text-center"><span class="badge bg-warning text-dark">{{ di.pintu_rr }}</span></td>
+                                                                                <td class="text-center"><span class="badge bg-danger">{{ di.pintu_rb }}</span></td>
+                                                                            </tr>
+                                                                            {% endif %}
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div id="distribusi-flowchart-view" class="w-100 h-100 p-2 bg-white rounded shadow-sm border" style="display: none; opacity: 0;">
+                                                    <div class="d-flex justify-content-between mb-2">
+                                                        <small class="text-muted fw-bold text-uppercase"><i class="fa-solid fa-diagram-project me-1"></i> Skema Aliran & Bangunan Pengatur</small>
+                                                    </div>
+                                                    <div class="bg-light rounded p-3 overflow-auto text-center" style="height: 400px;">
+                                                        <div class="mermaid" id="skema-mermaid-dashboard">
+                                                            {# Akan diisi otomatis via JS #}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+                            </div>
+                        <div id="section-list-saluran" class="detail-section" style="display: none; opacity: 0;">       
+                           <div class="d-flex justify-content-between align-items-center mb-3">
+                                {% comment %} <h5 class="fw-bold mb-0 text-info">
+                                    <i class="fa-solid fa-water me-2"></i>List Saluran Irigasi
+                                </h5> {% endcomment %}
+                                
+                                
+                                <div class="btn-group shadow-sm" role="group">
+                                    <button type="button" class="btn btn-sm btn-info text-white btn-slide-saluran" data-bs-target="#carouselSaluran" data-bs-slide-to="0">
+                                        <i class="fas fa-table me-1"></i> Tabel Saluran 
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-info btn-slide-saluran" data-bs-target="#carouselSaluran" data-bs-slide-to="1">
+                                        <i class="fas fa-chart-pie me-1"></i> Ringkasan Informasi Saluran
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                                <h5 class="fw-bold mb-0 text-primary">
+                                    <i class="fa-solid fa-water me-2"></i>Analisis Jaringan & Saluran Irigasi
+                                </h5>
+                                <button class="btn btn-sm btn-outline-info rounded-pill px-3 shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#petunjukSaluran" aria-expanded="false" aria-controls="petunjukSaluran">
+                                    <i class="fa-solid fa-circle-question me-1"></i> Cara Penggunaan
+                                </button>
+                            </div>
+
+                            <div class="collapse show mb-4" id="petunjukSaluran">
+                                <div class="card card-body bg-light border-info-subtle shadow-sm">
+                                    <div class="d-flex align-items-start">
+                                        <div class="me-3 mt-1 text-info" style="font-size: 2rem;">
+                                            <i class="fa-solid fa-map-location-dot fa-beat-fade"></i>
+                                        </div>
+                                        <div class="w-100">
+                                            <h6 class="fw-bold text-dark mb-1">Panduan Membaca Analisis Saluran</h6>
+                                            <p class="text-muted small mb-2">Halaman ini memuat dua segmen utama untuk memonitor kinerja infrastruktur jaringan irigasi Anda:</p>
+                                            
+                                            <div class="row g-3 small text-dark mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded bg-white h-100 border-start border-4 border-primary shadow-sm">
+                                                        <h6 class="fw-bold text-primary mb-2"><i class="fa-solid fa-table-list me-1"></i> 1. Tabel Inventaris Saluran</h6>
+                                                        <p class="text-muted mb-2" style="font-size:0.75rem;">Tabel interaktif yang memuat daftar lengkap seluruh ruas saluran. Fitur utama meliputi:</p>
+                                                        <ul class="text-muted mb-0 ps-3" style="font-size:0.75rem;">
+                                                            <li><strong>Filter Ganda:</strong> Saring data spesifik per Daerah Irigasi (D.I.) atau urutkan berdasarkan kondisi dominan (Baik, Rusak, BAP).</li>
+                                                            <li><strong>Progress Bar:</strong> Visualisasi cepat persentase kondisi meteran saluran.</li>
+                                                            <li><strong>Detail & Ekspor:</strong> Klik tombol <i class="fa-solid fa-eye text-info mx-1"></i> (Detail) untuk melihat rincian foto & peta koordinat. Gunakan tombol di atas tabel untuk mengunduh laporan (Excel/PDF).</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded bg-white h-100 border-start border-4 border-success shadow-sm">
+                                                        <h6 class="fw-bold text-success mb-2"><i class="fa-solid fa-chart-column me-1"></i> 2. Ringkasan Informasi Saluran</h6>
+                                                        <p class="text-muted mb-2" style="font-size:0.75rem;">Dashboard visual yang merangkum kesehatan fisik infrastruktur. Fitur utama meliputi:</p>
+                                                        <ul class="text-muted mb-0 ps-3" style="font-size:0.75rem;">
+                                                            <li><strong>Chart Global (Kiri):</strong> Rangkuman panjang total saluran (Primer, Sekunder, Tersier) untuk <em>seluruh</em> area Kabupaten.</li>
+                                                            <li><strong>Chart Per D.I. (Kanan):</strong> Analisis komparatif tingkat kesehatan antar D.I. (Gunakan tombol <kbd>&lt;</kbd> <kbd>&gt;</kbd> / <em>Carousel</em> untuk berpindah jenis saluran).</li>
+                                                            <li><strong>Modul IKSI:</strong> Wadah yang dipersiapkan untuk integrasi otomatis penilaian Indeks Kinerja Sistem Irigasi di masa mendatang.</li>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
 
-                                    <div id="distribusi-flowchart-view" class="w-100 h-100 p-2 bg-white rounded shadow-sm border" style="display: none; opacity: 0;">
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <small class="text-muted fw-bold text-uppercase"><i class="fa-solid fa-diagram-project me-1"></i> Skema Aliran & Bangunan Pengatur</small>
-                                        </div>
-                                        <div class="bg-light rounded p-3 overflow-auto text-center" style="height: 400px;">
-                                            <div class="mermaid" id="skema-mermaid-dashboard">
-                                                {# Akan diisi otomatis via JS #}
+                            <div id="carouselSaluran" class="carousel slide" data-bs-touch="false" data-bs-interval="false">
+                                <div class="carousel-inner">
+                                    
+                                    <div class="carousel-item active">
+                                        <div class="card shadow-sm border-0 p-3" style="min-height: 500px;">
+                                            <div class="table-responsive">
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-md-3">
+                                                        <select id="filter-di-saluran" class="form-select form-select-sm shadow-sm border-primary">
+                                                            <option value="">-- Filter Semua D.I. --</option>
+                                                            </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <select id="sort-kondisi-saluran" class="form-select form-select-sm shadow-sm border-success">
+                                                            <option value="">-- Urutkan Berdasarkan Kondisi --</option>
+                                                            <option value="6">Paling Banyak Kondisi Baik</option>
+                                                            <option value="7">Paling Banyak Rusak Ringan</option>
+                                                            <option value="8">Paling Banyak Rusak Berat</option>
+                                                            <option value="9">Paling Banyak BAP</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <table id="table-saluran-master" class="table table-sm table-hover align-middle w-100" style="font-size: 0.85rem;">
+                                                    <thead class="bg-light">
+                                                        <tr>
+                                                            <th style="width: 5%;">No</th>
+                                                            <th style="width: 15%;">Nama Saluran</th>
+                                                            <th style="width: 15%;">Jenis Saluran</th> 
+                                                            <th style="width: 15%;">Nama D.I.</th>
+                                                            <th class="text-center" style="width: 10%;">Panjang (m)</th>
+                                                            <th class="text-center" style="width: 30%;">Kondisi Saluran (%)</th>
+                                                            <th class="d-none">ValBaik</th>
+                                                            <th class="d-none">ValRR</th>
+                                                            <th class="d-none">ValRB</th>
+                                                            <th class="d-none">ValBAP</th>
+                                                            <th class="text-center" style="width: 10%;">Detail</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for s in data_saluran %}
+                                                            {% if s.is_approved %} 
+                                                            <tr>
+                                                                <td>{{ forloop.counter }}</td>
+                                                                <td class="fw-bold text-primary">{{ s.nama_saluran|default:"-" }}</td>
+
+                                                                
+                                                                
+                                                                <td><span class="badge border border-secondary text-secondary">{{ s.get_kode_aset_saluran_display|default:s.kode_aset_saluran|default:"-" }}</span></td>
+                                                                
+                                                                <td>{{ s.daerah_irigasi.nama_di|default:"-" }}</td>
+                                                                <td class="text-center fw-bold">{{ s.panjang_saluran|default:0 }}</td>
+                                                                <td class="align-middle px-3"<td class="align-middle" data-order="{% widthratio s.pct_rb 1 100 %}{% widthratio s.pct_rr 1 10 %}{{ s.pct_bap|floatformat:0 }}">
+
+                                                                <div class="progress shadow-sm d-flex" style="height: 22px; font-size: 0.7rem; font-weight: bold; border-radius: 6px; background-color: #e9ecef; overflow: hidden;">
+                                                                    
+                                                                    {% if s.panjang_saluran > 0 %}
+                                                                        
+                                                                        {% if s.pct_baik > 0 %}
+                                                                            <div class="progress-bar bg-success" style="width: {{ s.pct_baik }}%;" data-bs-toggle="tooltip" title="Baik: {{ s.panjang_baik }} m ({{ s.pct_baik|floatformat:1 }}%)">
+                                                                                {% if s.pct_baik >= 5 %}{{ s.pct_baik|floatformat:0 }}%{% endif %}
+                                                                            </div>
+                                                                        {% endif %}
+                                                                        
+                                                                        {% if s.pct_rr > 0 %}
+                                                                            <div class="progress-bar bg-warning text-dark" style="width: {{ s.pct_rr }}%;" data-bs-toggle="tooltip" title="Rusak Ringan: {{ s.panjang_rr }} m ({{ s.pct_rr|floatformat:1 }}%)">
+                                                                                {% if s.pct_rr >= 5 %}{{ s.pct_rr|floatformat:0 }}%{% endif %}
+                                                                            </div>
+                                                                        {% endif %}
+                                                                        
+                                                                        {% if s.pct_rb > 0 %}
+                                                                            <div class="progress-bar bg-danger" style="width: {{ s.pct_rb }}%;" data-bs-toggle="tooltip" title="Rusak Berat: {{ s.panjang_rb }} m ({{ s.pct_rb|floatformat:1 }}%)">
+                                                                                {% if s.pct_rb >= 5 %}{{ s.pct_rb|floatformat:0 }}%{% endif %}
+                                                                            </div>
+                                                                        {% endif %}
+                                                                        
+                                                                        {% if s.pct_bap > 0 %}
+                                                                            <div class="progress-bar bg-secondary" style="width: {{ s.pct_bap }}%;" data-bs-toggle="tooltip" title="BAP: {{ s.panjang_bap }} m ({{ s.pct_bap|floatformat:1 }}%)">
+                                                                                {% if s.pct_bap >= 5 %}{{ s.pct_bap|floatformat:0 }}%{% endif %}
+                                                                            </div>
+                                                                        {% endif %}
+
+                                                                    {% else %}
+                                                                        <div class="progress-bar bg-light text-muted w-100">Data Kosong</div>
+                                                                    {% endif %}
+                                                                    
+                                                                </div>
+
+                                                            </td>
+                                                                
+                                                                <td class="d-none">{{ s.pct_baik|default:0 }}</td>
+                                                                <td class="d-none">{{ s.pct_rr|default:0 }}</td>
+                                                                <td class="d-none">{{ s.pct_rb|default:0 }}</td>
+                                                                <td class="d-none">{{ s.pct_bap|default:0 }}</td>
+
+                                                                <td class="text-center"> 
+                                                                    <button class="btn btn-sm btn-info text-white rounded-circle shadow-sm" 
+                                                                        onclick="ambilDataDanBukaModal('{{ s.id }}', '{{ s.daerah_irigasi.id }}')">
+                                                                        <i class="fas fa-eye"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                            {% endif %}
+                                                        {% empty %}
+                                                            <tr>
+                                                                <td colspan="11" class="text-center text-muted">Tidak ada data saluran</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     </div>
 
-                                </div>
-                            </div>
-
-                           <div id="view-detail-sebaran" style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h5 class="fw-bold mb-0 text-primary">
-                                        <i class="fa-solid fa-ranking-star me-2"></i>Analisis Peringkat & Kondisi Jaringan
-                                    </h5>
-                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm" onclick="backToRingkasan()">
-                                        <i class="fas fa-arrow-left me-2"></i>Kembali
-                                    </button>
-                                </div>
-                                
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <div class="card shadow-sm border-0 p-4 h-100">
+                                    <div class="carousel-item">
+                                        <div id="view-detail-sebaran">
+                                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                                <h5 class="fw-bold mb-0 text-primary">
+                                                    <i class="fa-solid fa-ranking-star me-2"></i>Analisis Kondisi Jaringan
+                                                </h5>
+                                                <div>
+                                                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm me-2" onclick="toggleFullScreen('view-detail-sebaran')">
+                                                        <i class="fa-solid fa-expand me-1"></i> Fullscreen
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm" data-bs-target="#carouselSaluran" data-bs-slide-to="0">
+                                                        <i class="fas fa-arrow-left me-2"></i>Kembali ke Tabel
+                                                    </button>
+                                                </div>
+                                            </div>
                                             
-                                            <h6 class="text-center fw-bold text-muted mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
-                                                <i class="fa-solid fa-water me-2 text-primary"></i>Ringkasan Kondisi Saluran (m)
-                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="card shadow-sm border-0 mb-4">
+                                                            <div class="card-body">
+                                                                <div class="d-flex align-items-center mb-3">
+                                                                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px;">
+                                                                        <i class="fa-solid fa-water"></i>
+                                                                    </div>
+                                                                    <h5 class="fw-bold text-info mb-0">Ringkasan Kondisi Saluran</h5>
+                                                                </div>
+                                                                
+                                                                <div class="row g-3">
+                                                                    <div class="col-md-5 border-end border-info-subtle position-relative">
+                                                                        <div id="carouselKondisiSaluran" class="carousel slide" data-bs-ride="carousel">
+                                                                            <div class="carousel-indicators mb-0" style="bottom: -15px;">
+                                                                                <button type="button" data-bs-target="#carouselKondisiSaluran" data-bs-slide-to="0" class="active bg-info"></button>
+                                                                                <button type="button" data-bs-target="#carouselKondisiSaluran" data-bs-slide-to="1" class="bg-info"></button>
+                                                                                <button type="button" data-bs-target="#carouselKondisiSaluran" data-bs-slide-to="2" class="bg-info"></button>
+                                                                            </div>
 
-                                            <div class="mb-4">
-                                                <label class="fw-bold text-primary small mb-1">
-                                                    <i class="fa-solid fa-arrow-right-long me-1"></i>Saluran Pembawa Primer
-                                                </label>
-                                                <div style="height: 10vh;"><canvas id="chartStackedPrimer"></canvas></div>
-                                            </div>
+                                                                            <div class="carousel-inner pb-3">
+                                                                                
+                                                                                <div class="carousel-item active" data-bs-interval="4000">
+                                                                                    <p class="mb-2 text-dark fw-bold" style="font-size: 0.95rem;">
+                                                                                        <i class="fa-solid fa-arrow-right-long text-success me-1"></i> Total Saluran Primer / Induk: 
+                                                                                        <span class="text-info">{{ total_primer|default:"0" }} m</span>
+                                                                                    </p>
+                                                                                    <ul class="list-unstyled mb-0" style="font-size: 0.85rem;">
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-success me-2" style="font-size: 10px;"></i> Kondisi Baik</span>
+                                                                                            <strong>{{ primer_detail.baik|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-warning me-2" style="font-size: 10px;"></i> Rusak Ringan</span>
+                                                                                            <strong>{{ primer_detail.rr|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-danger me-2" style="font-size: 10px;"></i> Rusak Berat</span>
+                                                                                            <strong>{{ primer_detail.rb|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-secondary me-2" style="font-size: 10px;"></i> Belum Ada Pasangan</span>
+                                                                                            <strong>{{ primer_detail.bap|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                </div>
 
-                                            <div class="mb-4">
-                                                <label class="fw-bold text-primary small mb-1">
-                                                    <i class="fa-solid fa-arrow-right-long me-1"></i>Saluran Pembawa Sekunder
-                                                </label>
-                                                <div style="height: 10vh;"><canvas id="chartStackedSekunder"></canvas></div>
-                                            </div>
+                                                                                <div class="carousel-item" data-bs-interval="4000">
+                                                                                    <p class="mb-2 text-dark fw-bold" style="font-size: 0.95rem;">
+                                                                                        <i class="fa-solid fa-code-branch text-warning me-1"></i> Total Saluran Sekunder: 
+                                                                                        <span class="text-info">{{ total_sekunder|default:"0" }} m</span>
+                                                                                    </p>
+                                                                                    <ul class="list-unstyled mb-0" style="font-size: 0.85rem;">
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-success me-2" style="font-size: 10px;"></i> Kondisi Baik</span>
+                                                                                            <strong>{{ sekunder_detail.baik|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-warning me-2" style="font-size: 10px;"></i> Rusak Ringan</span>
+                                                                                            <strong>{{ sekunder_detail.rr|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-danger me-2" style="font-size: 10px;"></i> Rusak Berat</span>
+                                                                                            <strong>{{ sekunder_detail.rb|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-secondary me-2" style="font-size: 10px;"></i> Belum Ada Pasangan</span>
+                                                                                            <strong>{{ sekunder_detail.bap|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                </div>
 
-                                            <div>
-                                                <label class="fw-bold text-info small mb-1">
-                                                    <i class="fa-solid fa-arrow-left-long me-1"></i>Saluran Pembuang
-                                                </label>
-                                                <div style="height: 10vh;"><canvas id="chartStackedPembuang"></canvas></div>
-                                            </div>
+                                                                                <div class="carousel-item" data-bs-interval="4000">
+                                                                                    <p class="mb-2 text-dark fw-bold" style="font-size: 0.95rem;">
+                                                                                        <i class="fa-solid fa-leaf text-success me-1"></i> Total Saluran Tersier: 
+                                                                                        <span class="text-info">{{ total_tersier|default:"0" }} m</span>
+                                                                                    </p>
+                                                                                    <ul class="list-unstyled mb-0" style="font-size: 0.85rem;">
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-success me-2" style="font-size: 10px;"></i> Kondisi Baik</span>
+                                                                                            <strong>{{ tersier_detail.baik|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-warning me-2" style="font-size: 10px;"></i> Rusak Ringan</span>
+                                                                                            <strong>{{ tersier_detail.rr|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="mb-1 d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-danger me-2" style="font-size: 10px;"></i> Rusak Berat</span>
+                                                                                            <strong>{{ tersier_detail.rb|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                        <li class="d-flex justify-content-between align-items-center pe-3">
+                                                                                            <span><i class="fa-solid fa-circle text-secondary me-2" style="font-size: 10px;"></i> Belum Ada Pasangan</span>
+                                                                                            <strong>{{ tersier_detail.bap|default:"0" }} m</strong>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                </div>
 
-                                            <div class="mt-4 p-2 bg-light rounded text-center">
-                                                <small class="text-muted" style="font-size: 0.7rem;">
-                                                    <i class="fa-solid fa-circle-info me-1"></i>Legend: 
-                                                    <span class="text-success mx-1">● Baik</span> 
-                                                    <span class="text-warning mx-1">● RR</span> 
-                                                    <span class="text-danger mx-1">● RB</span> 
-                                                    <span class="text-secondary mx-1">● BAP</span>
-                                                </small>
-                                            </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="col-md-7">
+                                                                        <p class="mb-2 text-dark fw-bold" style="font-size: 0.9rem;">
+                                                                            <i class="fa-solid fa-chart-line text-primary me-1"></i> Penilaian Kinerja IKSI
+                                                                        </p>
+                                                                        
+                                                                        <div class="p-3 bg-light rounded border border-light-subtle position-relative overflow-hidden h-75">
+                                                                            <i class="fa-solid fa-gears position-absolute text-secondary" style="font-size: 6rem; opacity: 0.05; right: -15px; bottom: -15px;"></i>
+                                                                            
+                                                                            <p class="text-muted small mb-3" style="line-height: 1.5; position: relative; z-index: 1;">
+                                                                                Modul <strong>Indeks Kinerja Sistem Irigasi (IKSI)</strong> sedang dalam tahap integrasi. Area ini nantinya akan otomatis menampilkan persentase dan indeks kinerja fisik jaringan saluran berdasarkan formulasi standar <strong>Permen PU 14/2015</strong>.
+                                                                            </p>
+                                                                            
+                                                                            <div class="d-flex align-items-center position-relative" style="z-index: 1;">
+                                                                                <div class="spinner-grow spinner-grow-sm text-primary me-2" role="status">
+                                                                                    <span class="visually-hidden">Loading...</span>
+                                                                                </div>
+                                                                                <span class="text-primary fw-bold" style="font-size: 0.8rem; letter-spacing: 0.5px;">Menunggu Modul Penilaian...</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                <div class="col-md-6">
+                                                    <div class="card shadow-sm border-0 p-4 h-100">
+                                                        <h6 class="text-center fw-bold text-muted mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                                            <i class="fa-solid fa-water me-2 text-primary"></i>Informasi Saluran Per Seluruh DI
+                                                        </h6>
+                                                        <div class="mb-4">
+                                                            <label class="fw-bold text-primary small mb-1"><i class="fa-solid fa-arrow-right-long me-1"></i>Saluran Pembawa Primer (M)</label>
+                                                            <div style="height: 10vh;"><canvas id="chartStackedPrimer"></canvas></div>
+                                                        </div>
+                                                        <div class="mb-4">
+                                                            <label class="fw-bold text-primary small mb-1"><i class="fa-solid fa-arrow-right-long me-1"></i>Saluran Pembawa Sekunder (M)</label>
+                                                            <div style="height: 10vh;"><canvas id="chartStackedSekunder"></canvas></div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="fw-bold text-info small mb-1"><i class="fa-solid fa-arrow-right-long me-1"></i>Saluran Tersier (M)</label>
+                                                            <div style="height: 10vh;"><canvas id="chartStackedTersier"></canvas></div>
+                                                        </div>
+                                                        <div class="mt-4 p-2 bg-light rounded text-center">
+                                                            <small class="text-muted" style="font-size: 0.7rem;">
+                                                                <i class="fa-solid fa-circle-info me-1"></i>Legend: 
+                                                                <span class="text-success mx-1">● Baik</span> 
+                                                                <span class="text-warning mx-1">● RR</span> 
+                                                                <span class="text-danger mx-1">● RB</span> 
+                                                                <span class="text-secondary mx-1">● BAP</span>
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
 
-                                        </div>
-                                    </div>
+                                                <div class="col-md-6">
+                                                    <div class="card shadow-sm border-0 p-4 h-100 position-relative">
+                                                        <h6 class="text-center fw-bold text-muted mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                                            <i class="fa-solid fa-chart-column me-2 text-success"></i>Informasi Saluran Per DI
+                                                        </h6>
+                                                        
+                                                        <div id="carouselChartPerDI" class="carousel slide" data-bs-ride="carousel">
+                                                            <div class="carousel-indicators mb-0" style="bottom: -15px;">
+                                                                <button type="button" data-bs-target="#carouselChartPerDI" data-bs-slide-to="0" class="active bg-primary"></button>
+                                                                <button type="button" data-bs-target="#carouselChartPerDI" data-bs-slide-to="1" class="bg-primary"></button>
+                                                                <button type="button" data-bs-target="#carouselChartPerDI" data-bs-slide-to="2" class="bg-primary"></button>
+                                                            </div>
+                                                            
+                                                            <div class="carousel-inner pb-4">
+                                                                <div class="carousel-item active" data-bs-interval="5000">
+                                                                    <p class="text-center fw-bold text-success mb-2 small">Saluran Primer / Induk</p>
+                                                                    <div style="height: 400px;"><canvas id="chartKeandalanPrimer"></canvas></div>
+                                                                </div>
+                                                                <div class="carousel-item" data-bs-interval="5000">
+                                                                    <p class="text-center fw-bold text-warning mb-2 small">Saluran Sekunder</p>
+                                                                    <div style="height: 400px;"><canvas id="chartKeandalanSekunder"></canvas></div>
+                                                                </div>
+                                                                <div class="carousel-item" data-bs-interval="5000">
+                                                                    <p class="text-center fw-bold text-danger mb-2 small">Saluran Tersier</p>
+                                                                    <div style="height: 400px;"><canvas id="chartKeandalanTersier"></canvas></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                    <div class="col-md-6">
-                                        <div class="card shadow-sm border-0 p-4 h-100">
-                                            <h6 class="text-center fw-bold text-muted mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
-                                                Tingkat Keandalan Jaringan per D.I. (%)
-                                            </h6>
-                                            <div style="height: 480px;">
-                                                <canvas id="chartKeandalanStacked"></canvas>
-                                            </div>
-                                            <div class="mt-3 p-2 bg-light rounded text-center">
-                                                <small class="text-muted" style="font-size: 0.7rem;">
-                                                    Legend: <span class="text-success">● Baik</span> | 
-                                                    <span class="text-warning">● Rusak Ringan</span> | 
-                                                    <span class="text-danger">● Rusak Berat</span> | 
-                                                    <span class="text-secondary">● Belum Ada Pasangan</span>
-                                                </small>
+                                                        <div class="mt-3 p-2 bg-light rounded text-center">
+                                                            <small class="text-muted" style="font-size: 0.7rem;">
+                                                                Legend: <span class="text-success">● Baik</span> | 
+                                                                <span class="text-warning">● Rusak Ringan</span> | 
+                                                                <span class="text-danger">● Rusak Berat</span> | 
+                                                                <span class="text-secondary">● Belum Ada Pasangan</span>
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
                         </div>
                     </div>
                     
@@ -796,235 +1442,334 @@
         
 
         <div id="detailOverlay" class="detail-overlay" style="display: none; opacity: 0;">
-                <input type="hidden" id="id_di_aktif" value="">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3 sticky-top">
-                        <h5 class="mb-0 fw-bold" id="titleIrigasi">Detail Daerah Irigasi</h5>
-                        <button type="button" id="closeOverlay" class="btn-close btn-close-white" aria-label="Close"></button>
-                    </div>
-
-                    <div class="overlay-body p-0">
-                        <ul class="nav nav-tabs nav-fill bg-light border-bottom sticky-top" id="modalTab" role="tablist" style=" z-index: 1020;">
-                            <li class="nav-item">
-                                <button class="nav-link active fw-bold py-3" id="modal-info-tab" data-bs-toggle="tab" data-bs-target="#modal-info" type="button">
-                                    <i class="fa-solid fa-circle-info me-1"></i> Ringkasan
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link fw-bold py-3" id="modal-map-tab" data-bs-toggle="tab" data-bs-target="#modal-map" type="button">
-                                    <i class="fa-solid fa-map-location-dot me-1"></i> Peta
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link fw-bold py-3" id="modal-saluran-tab" data-bs-toggle="tab" data-bs-target="#modal-saluran" type="button">
-                                    <i class="fa-solid fa-water me-1"></i> Saluran
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link fw-bold py-3" id="modal-bangunan-tab" data-bs-toggle="tab" data-bs-target="#modal-bangunan" type="button">
-                                    <i class="fa-solid fa-faucet me-1"></i> Bangunan
-                                </button>
-                            </li>
-                        </ul>
-
-                        <div class="tab-content p-4" id="modalTabContent">
-                            
-                            <div class="tab-pane fade show active" id="modal-info" role="tabpanel">
-                                <div class="card border-0 bg-white shadow-sm mb-4">
-                                    <div class="card-body">
-                                        <h6 class="fw-bold border-bottom pb-2 mb-3 text-primary">Informasi Data Teknis</h6>
-                                        <div class="row g-3 text-center border-bottom pb-3 mb-3">
-                                            <div class="col-6 col-md-3">
-                                                <small class="text-muted d-block">Sumber Air</small>
-                                                <p id="modalSumber" class="fw-bold mb-0">-</p>
-                                            </div>
-                                            <div class="col-6 col-md-3">
-                                                <small class="text-muted d-block">Bendung</small>
-                                                <p id="modalBendung" class="fw-bold mb-0">-</p>
-                                            </div>
-                                            <div class="col-6 col-md-3">
-                                                <small class="text-muted d-block">Luas Permen 14/2015</small>
-                                                <p class="fw-bold mb-0"><span id="modalPermen">0</span> Ha</p>
-                                            </div>
-                                            <div class="col-6 col-md-3">
-                                                <small class="text-muted d-block">Luas OneMap</small>
-                                                <p class="fw-bold mb-0"><span id="modalOnemap">0</span> Ha</p>
-                                            </div>
-                                        </div>
-
-                                        <h6 class="fw-bold border-bottom pb-2 mb-3 text-success small">Inventarisasi Aset (PAI)</h6>
-                                        <div class="row g-3 text-center">
-                                            <div class="col-4 col-md-2">
-                                                <small class="text-muted d-block small">Sal. Primer</small>
-                                                <p class="fw-bold mb-0 text-primary small"><span id="countPrimer">0</span> m</p>
-                                            </div>
-                                            <div class="col-4 col-md-2">
-                                                <small class="text-muted d-block small">Sal. Sekunder</small>
-                                                <p class="fw-bold mb-0 text-primary small"><span id="countSekunder">0</span> m</p>
-                                            </div>
-                                            <div class="col-4 col-md-2 border-end">
-                                                <small class="text-muted d-block small">Total Saluran</small>
-                                                <p class="fw-bold mb-0 text-dark small"><span id="countTotalSal">0</span> m</p>
-                                            </div>
-                                            <div class="col-6 col-md-3 border-end">
-                                                <small class="text-muted d-block small">Jumlah Bangunan</small>
-                                                <p class="fw-bold mb-0 text-success"><span id="countBangunan">0</span> Unit</p>
-                                            </div>
-                                            <div class="col-6 col-md-3">
-                                                <small class="text-muted d-block small">Jumlah Pintu Air</small>
-                                                <p class="fw-bold mb-0 text-success"><span id="countPintu">0</span> Unit</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                            </div>
-
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <div class="card border-0 shadow-sm p-3 text-center">
-                                            <small class="fw-bold d-block mb-3">Jaringan Primer</small>
-                                            <div style="height: 180px;"><canvas id="chartPrimer"></canvas></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card border-0 shadow-sm p-3 text-center">
-                                            <small class="fw-bold d-block mb-3">Jaringan Sekunder</small>
-                                            <div style="height: 180px;"><canvas id="chartSekunder"></canvas></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card border-0 shadow-sm p-3 text-center">
-                                            <small class="fw-bold d-block mb-3">Pintu Pengatur</small>
-                                            <div style="height: 180px;"><canvas id="chartPintu"></canvas></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="tab-pane fade" id="modal-map" role="tabpanel">
-                                <div class="card border-0 shadow-sm overflow-hidden">
-                                    <div id="mapDetail" style="height: 60vh; width: 100%;"></div>
-                                </div>
-                            </div>
-
-                            <div class="tab-pane fade" id="modal-bangunan" role="tabpanel">
-                                <div class="card border-0 shadow-sm">
-                                    <div class="card-header bg-white d-flex justify-content-between align-items-center border-bottom-0 pt-3">
-                                        <h6 class="fw-bold mb-0">Daftar Aset Bangunan</h6>
-                                        <div id="filter-info-bangunan">
-                                            <span class="text-muted small italic">Menampilkan Semua Bangunan</span>
-                                        </div>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <div class="table-responsive">
-                                           <table id="tabelBangunan" class="table table-striped table-bordered nowrap w-100">
-                                                <thead class="table-dark">
-                                                    <tr>
-                                                        <th></th> <th>Nomenklatur Ruas</th>
-                                                        <th>Nama Saluran</th>
-                                                        <th class="text-center">Koordinat</th>
-                                                        <th>Kecamatan</th>
-                                                        <th>Desa</th>
-                                                        <th>Kode Aset</th>
-                                                        <th class="text-center">Luas Areal (Ha)</th>
-                                                        <th>Kondisi Pintu</th>
-                                                        <th>Saluran Primer</th>
-                                                        <th>Saluran Sekunder</th>
-                                                        <th class="text-center">Aksi</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody></tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="tab-pane fade" id="modal-saluran" role="tabpanel">
-                                <div class="card border-0 shadow-sm">
-                                    <div class="mb-3 d-flex flex-wrap gap-2">
-                                        <button class="btn btn-sm btn-primary shadow-sm" onclick="rekapAset()">
-                                            <i class="fa-solid fa-file-pdf me-1"></i> 1. Rekapitulasi Kinerja & Aset
-                                        </button>
-                                        <button class="btn btn-sm btn-success shadow-sm" onclick="iksiTersier()">
-                                            <i class="fa-solid fa-chart-simple me-1"></i> 2. IKSI Primer 
-                                        </button>
-                                        <button class="btn btn-sm btn-success shadow-sm" onclick="iksiUtama()">
-                                            <i class="fa-solid fa-chart-simple me-1"></i> 3. IKSI Sekunder
-                                        </button>
-                                        <button class="btn btn-sm btn-success shadow-sm" onclick="iksiSekunder()">
-                                            <i class="fa-solid fa-chart-simple me-1"></i> 4. IKSI Tersier
-                                        </button>
-                                        <button class="btn btn-sm btn-dark shadow-sm" onclick="iksiGabungan()">
-                                            <i class="fa-solid fa-layer-group me-1"></i> 5. Rekap IKSI GABUNGAN
-                                        </button>
-                                    </div>
-
-                                    <div class="table-responsive border rounded shadow-sm">
-                                        <table id="tabelSaluran" class="table table-sm table-hover table-bordered w-100 mb-0">
-                                            <thead class="table-dark small align-middle text-center">
-                                                <tr>
-                                                    <th>No.</th>
-                                                    <th>Nama Saluran</th>
-                                                    <th>Tingkat</th>
-                                                    <th>Hulu</th>
-                                                    <th>Hilir</th>
-                                                    <th>Panjang (m)</th>
-                                                    <th>Luas (Ha)</th>
-                                                    <th>Kondisi</th>
-                                                    <th>Aksi</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="bodySaluran" class="small">
-                                                </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div> 
-                    </div>
+            <input type="hidden" id="id_di_aktif" value="">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3 sticky-top">
+                    <h5 class="mb-0 fw-bold" id="titleIrigasi">Detail Daerah Irigasi</h5>
+                    <button type="button" id="closeOverlay" class="btn-close btn-close-white" aria-label="Close"></button>
                 </div>
-    {% else %}
-        <section id="loginSection" class="gsap-section"> <div class="d-flex justify-content-center align-items-center w-100">
-                <div class="card shadow border-0" style="width: 100%; max-width: 400px;">
-                    <div class="card-body p-5 text-center">
-                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                            <i class="fa-solid fa-user-lock fa-2x"></i>
+
+                <div class="overlay-body p-0">
+                    <ul class="nav nav-tabs nav-fill bg-light border-bottom sticky-top" id="modalTab" role="tablist" style=" z-index: 1020;">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-bold py-3" id="modal-info-tab" data-bs-toggle="tab" data-bs-target="#modal-info" type="button">
+                                <i class="fa-solid fa-circle-info me-1"></i> Ringkasan
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold py-3" id="modal-map-tab" data-bs-toggle="tab" data-bs-target="#modal-map" type="button">
+                                <i class="fa-solid fa-map-location-dot me-1"></i> Peta
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold py-3" id="modal-saluran-tab" data-bs-toggle="tab" data-bs-target="#modal-saluran" type="button">
+                                <i class="fa-solid fa-water me-1"></i> Saluran
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold py-3" id="modal-bangunan-tab" data-bs-toggle="tab" data-bs-target="#modal-bangunan" type="button">
+                                <i class="fa-solid fa-faucet me-1"></i> Bangunan
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4" id="modalTabContent">
+                        
+                        <div class="tab-pane fade show active" id="modal-info" role="tabpanel">
+                            <div class="card border-0 bg-white shadow-sm mb-4">
+                                <div class="card-body">
+                                    <h6 class="fw-bold border-bottom pb-2 mb-3 text-primary">Informasi Data Teknis</h6>
+                                    <div class="row g-3 text-center border-bottom pb-3 mb-3">
+                                        <div class="col-6 col-md-3">
+                                            <small class="text-muted d-block">Sumber Air</small>
+                                            <p id="modalSumber" class="fw-bold mb-0">-</p>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <small class="text-muted d-block">Bendung</small>
+                                            <p id="modalBendung" class="fw-bold mb-0">-</p>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <small class="text-muted d-block">Luas Permen 14/2015</small>
+                                            <p class="fw-bold mb-0"><span id="modalPermen">0</span> Ha</p>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <small class="text-muted d-block">Luas OneMap</small>
+                                            <p class="fw-bold mb-0"><span id="modalOnemap">0</span> Ha</p>
+                                        </div>
+                                    </div>
+
+                                    <h6 class="fw-bold text-success border-bottom pb-2 mb-3">Inventarisasi Aset</h6>
+                                    <div class="row g-3 text-center d-flex justify-content-center">
+                                        <div class="col-6 col-md border-end">
+                                            <small class="text-muted d-block mb-1">Sal. Primer</small>
+                                            <p id="countPrimer" class="fw-bold text-primary mb-0">-</p>
+                                        </div>
+                                        
+                                        <div class="col-6 col-md border-end">
+                                            <small class="text-muted d-block mb-1">Sal. Sekunder</small>
+                                            <p id="countSekunder" class="fw-bold text-primary mb-0">-</p>
+                                        </div>
+                                        
+                                        <div class="col-6 col-md border-end">
+                                            <small class="text-muted d-block mb-1">Sal. Tersier</small>
+                                            <p id="countTersier" class="fw-bold text-primary mb-0">-</p>
+                                        </div>
+                                        
+                                        <div class="col-6 col-md border-end">
+                                            <small class="text-muted d-block mb-1">Jumlah Bangunan</small>
+                                            <p id="countBangunan" class="fw-bold text-success mb-0">-</p>
+                                        </div>
+                                        
+                                        <div class="col-6 col-md">
+                                            <small class="text-muted d-block mb-1">Jumlah Pintu Air</small>
+                                            <p id="countPintu" class="fw-bold text-success mb-0">-</p>
+                                        </div>
+                                    </div>
+                                </div>
                         </div>
-                        <h4 class="fw-bold">Login SIARUS</h4>
-                        <form method="post" action="{% url 'login' %}" class="text-start mt-4">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold">Username</label>
-                                <input type="text" name="username" class="form-control" required>
+
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm p-3 text-center">
+                                        <small class="fw-bold d-block mb-3">Jaringan Primer</small>
+                                        <div style="height: 180px;"><canvas id="chartPrimer"></canvas></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm p-3 text-center">
+                                        <small class="fw-bold d-block mb-3">Jaringan Sekunder</small>
+                                        <div style="height: 180px;"><canvas id="chartSekunder"></canvas></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm p-3 text-center">
+                                        <small class="fw-bold d-block mb-3">Jaringan Tersier</small>
+                                        <div style="height: 180px;"><canvas id="chartTersier"></canvas></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mb-4">
-                                <label class="form-label small fw-bold">Password</label>
-                                <input type="password" name="password" class="form-control" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">MASUK</button>
-                        </form>
-                        {% load socialaccount %}
-                        <div class="mt-4">
-                            <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger w-100">
-                                <i class="fa-brands fa-google me-2"></i> Gmail Login
-                            </a>
                         </div>
-                    </div>
+
+                        <div class="tab-pane fade" id="modal-map" role="tabpanel">
+                            <div class="card border-0 shadow-sm overflow-hidden">
+                                <div id="mapDetail" style="height: 60vh; width: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="modal-bangunan" role="tabpanel">
+                            <div class="card border-0 shadow-sm">
+                                <div class="alert alert-warning border-0 shadow-sm mb-3 d-flex align-items-center" style="background-color: #fff9db;">
+                                    <i class="fa-solid fa-circle-info fs-4 text-warning me-3"></i>
+                                    <div>
+                                        <strong class="text-dark">Modul Pelaporan & Penilaian IKSI:</strong>
+                                        <p class="mb-0 text-muted small">Fitur tombol di bawah ini merupakan instrumen yang disiapkan untuk perhitungan <strong>Indeks Kinerja Sistem Irigasi (IKSI)</strong>. Data akan terkalkulasi otomatis setelah kuesioner inventarisasi aset bangunan dilengkapi.</p>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3 d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-primary shadow-sm" onclick="rekapAset()"><i class="fa-solid fa-file-pdf me-1"></i> 1. Rekapitulasi Kinerja & Aset</button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiTersier()"><i class="fa-solid fa-chart-simple me-1"></i> 2. IKSI Tersier</button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiUtama()"><i class="fa-solid fa-chart-simple me-1"></i> 3. IKSI Utama</button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiSekunder()"><i class="fa-solid fa-chart-simple me-1"></i> 4. IKSI Sekunder</button>
+                                    <button class="btn btn-sm btn-dark shadow-sm" onclick="iksiGabungan()"><i class="fa-solid fa-layer-group me-1"></i> 5. Rekap IKSI GABUNGAN</button>
+                                </div>
+
+                                <div class="row g-2 mb-3 bg-light p-2 rounded mx-0 border">
+                                    <div class="col-md-6">
+                                        <select id="filterSaluranModalBangunan" class="form-select form-select-sm border-primary">
+                                            <option value="">-- Filter Semua Saluran --</option>
+                                            </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select id="filterKondisiModalBangunan" class="form-select form-select-sm border-success">
+                                            <option value="">-- Filter Kondisi Bangunan --</option>
+                                            <option value="BAIK">Kondisi Baik</option>
+                                            <option value="RR">Rusak Ringan</option>
+                                            <option value="RB">Rusak Berat</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table id="tabelBangunan" class="table table-striped table-bordered nowrap w-100" style="font-size: 0.85rem;">
+                                        <thead class="table-dark text-center align-middle">
+                                            <tr>
+                                                <th>No.</th>
+                                                <th>Nama Bangunan</th>
+                                                <th>Kode Aset</th>
+                                                <th>Koordinat (Long, Lat)</th>
+                                                <th>Nama D.I.</th>
+                                                <th>Nama Saluran</th>
+                                                <th>Surveyor</th>
+                                                <th>Luas Areal (Ha)</th>
+                                                <th>Kondisi</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="align-middle"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="modal-saluran" role="tabpanel">
+                            <div class="card border-0 shadow-sm">
+                                
+                                <div class="alert alert-warning border-0 shadow-sm mb-3 d-flex align-items-center" style="background-color: #fff9db;">
+                                    <i class="fa-solid fa-circle-info fs-4 text-warning me-3"></i>
+                                    <div>
+                                        <strong class="text-dark">Modul Pelaporan & Penilaian IKSI:</strong>
+                                        <p class="mb-0 text-muted small">Fitur tombol di bawah ini merupakan instrumen yang disiapkan untuk perhitungan <strong>Indeks Kinerja Sistem Irigasi (IKSI)</strong> sesuai standar Permen PU. Data akan terkalkulasi otomatis setelah formulir kuesioner inventarisasi dilengkapi.</p>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3 d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-primary shadow-sm" onclick="rekapAset()">
+                                        <i class="fa-solid fa-file-pdf me-1"></i> 1. Rekapitulasi Kinerja & Aset
+                                    </button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiTersier()">
+                                        <i class="fa-solid fa-chart-simple me-1"></i> 2. IKSI Tersier
+                                    </button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiUtama()">
+                                        <i class="fa-solid fa-chart-simple me-1"></i> 3. IKSI Utama
+                                    </button>
+                                    <button class="btn btn-sm btn-success shadow-sm" onclick="iksiSekunder()">
+                                        <i class="fa-solid fa-chart-simple me-1"></i> 4. IKSI Sekunder
+                                    </button>
+                                    <button class="btn btn-sm btn-dark shadow-sm" onclick="iksiGabungan()">
+                                        <i class="fa-solid fa-layer-group me-1"></i> 5. Rekap IKSI GABUNGAN
+                                    </button>
+                                </div>
+
+                                <div class="row g-2 mb-3 bg-light p-2 rounded mx-0 border">
+                                    <div class="col-md-6">
+                                        <select id="filterKodeSaluranModal" class="form-select form-select-sm border-primary">
+                                            <option value="">-- Filter Jenis/Kode Saluran --</option>
+                                            <option value="S01">S01 - Saluran Primer</option>
+                                            <option value="S02">S02 - Saluran Sekunder</option>
+                                            <option value="S03">S03 - Saluran Suplesi</option>
+                                            <option value="S15">S15 - Saluran Tersier</option>
+                                            <option value="S16">S16 - Saluran Kuarter</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select id="filterKondisiSaluranModal" class="form-select form-select-sm border-success">
+                                            <option value="">-- Filter Kondisi Saluran --</option>
+                                            <option value="BAIK">Kondisi Baik</option>
+                                            <option value="RR">Rusak Ringan</option>
+                                            <option value="RB">Rusak Berat</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive border rounded shadow-sm">
+                                    <table id="tabelSaluran" class="table table-sm table-hover table-bordered w-100 mb-0">
+                                        <thead class="table-dark small align-middle text-center">
+                                            <tr>
+                                                <th rowspan="2" style="width: 5%;">No.</th>
+                                                <th rowspan="2">Nama Saluran</th>
+                                                <th rowspan="2">Tingkat (Kode)</th>
+                                                <th rowspan="2">Hulu</th>
+                                                <th rowspan="2">Hilir</th>
+                                                <th rowspan="2">Panjang (m)</th>
+                                                <th rowspan="2">Luas (Ha)</th>
+                                                {% comment %} <th colspan="2" class="border-bottom-0">Dimensi Saluran</th> {% endcomment %}
+                                                {% comment %} <th rowspan="2">Kondisi</th>
+                                                <th rowspan="2">Aksi</th> {% endcomment %}
+                                            </tr>
+                                            <tr>
+                                                <th>Kondisi</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bodySaluran" class="small">
+                                            </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> 
                 </div>
             </div>
-        </section>
+    {% else %}
+        <section id="loginSection" class="gsap-section"> 
+                <div class="d-flex justify-content-center align-items-center w-100" style="min-height: 100vh;">
+                    <div class="card shadow border-0" style="width: 100%; max-width: 400px; transform: translateY(2rem);">
+                        <div class="card-body p-5 text-center">
+                            
+                            <div class="mb-4">
+                                <img src="/static/img/LogoSirigasi.png" alt="Logo SIRIGASI" style="height: 100px; width: auto; object-fit: contain;">
+                            </div>
+                            
+                            <h4 class="fw-bold mb-4">Login SIRIGASI</h4>
+                            
+                            <form method="post" action="{% url 'login' %}" class="text-start mt-4">
+                                {% csrf_token %}
+                                
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Username</label>
+                                    <input type="text" name="login" class="form-control" required>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label small fw-bold mb-0">Password</label>
+                                        <a href="{% url 'password_reset' %}" class="small text-decoration-none text-primary">Lupa Password?</a>
+                                    </div>
+                                    
+                                    <div class="input-group">
+                                        <input type="password" name="password" id="passwordInput" class="form-control" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                                        </button>
+                                    </div>
+                                    
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">MASUK</button>
+                            </form>
+                            
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    const togglePassword = document.querySelector('#togglePassword');
+                    const passwordInput = document.querySelector('#passwordInput');
+                    const eyeIcon = document.querySelector('#eyeIcon');
+
+                    togglePassword.addEventListener('click', function (e) {
+                        // Cek tipe input saat ini
+                        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                        passwordInput.setAttribute('type', type);
+                        
+                        // Ubah ikon mata
+                        if (type === 'password') {
+                            eyeIcon.classList.remove('fa-eye-slash');
+                            eyeIcon.classList.add('fa-eye');
+                        } else {
+                            eyeIcon.classList.remove('fa-eye');
+                            eyeIcon.classList.add('fa-eye-slash'); // Ikon mata dicoret
+                        }
+                    });
+                });
+            </script>
     {% endif %}
 
     
 </div>
 
 <script>
+    
     {% if user.is_authenticated %}
     const dataKondisi = {
         baik: {{ rekap_kondisi.baik|default:0|stringformat:".2f" }},
         rusak_ringan: {{ rekap_kondisi.rusak_ringan|default:0|stringformat:".2f" }},
         rusak_berat: {{ rekap_kondisi.rusak_berat|default:0|stringformat:".2f" }}
     };
+    
     {% endif %}
 </script>
 {% endblock %}

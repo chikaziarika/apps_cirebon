@@ -20,7 +20,11 @@ document.addEventListener('DOMContentLoaded', function() {
         row.querySelector('.module').appendChild(mapDiv);
 
         const map = L.map(mapDiv, { fullscreenControl: true }).setView([-6.826, 108.604], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', {
+            attribution: '&copy; Google Maps',
+            maxZoom: 20
+        }).addTo(map);
 
         const savedLat = parseFloat(latInput.value);
         const savedLon = parseFloat(lonInput.value);
@@ -105,7 +109,26 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (match && match.geometry_data) renderGaris(match.geometry_data, match.nama_saluran);
                     });
             } else if (diId) {
-                fetch(`/api/geojson/di/${diId}/`).then(res => res.json()).then(data => renderGaris(data, "D.I."));
+                fetch(`/api/geojson/di/${diId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`); // Mencegah Leaflet membaca HTML 404
+                }
+                return response.json();
+            })
+            .then(geojsonData => {
+                if (!geojsonData || !geojsonData.type) {
+                    console.warn("Format data bukan GeoJSON");
+                    return;
+                }
+                L.geoJSON(geojsonData, {
+                    // ... opsi styling Anda ...
+                }).addTo(yourMapVariable);
+            })
+            .catch(error => {
+                console.error("Gagal mengambil garis referensi DI:", error);
+                // Biarkan peta tetap jalan tanpa garis referensi
+            });
             }
         };
 

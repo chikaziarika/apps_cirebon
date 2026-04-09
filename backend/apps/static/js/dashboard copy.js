@@ -629,63 +629,63 @@ function renderRankingSebaran() {
     }
 
     function renderModalCharts(d) {
-    const labels = ['Baik', 'Rusak Ringan', 'Rusak Berat', 'BAP'];
-    const colors = ['#198754', '#ffc107', '#dc3545', '#6c757d'];
+            const labels = ['Baik', 'Rusak Ringan', 'Rusak Berat', 'BAP'];
+            const colors = ['#198754', '#ffc107', '#dc3545', '#6c757d'];
 
-    const configs = [
-        { 
-            id: 'chartPrimer', 
-            data: [d.primer_baik, d.primer_rr, d.primer_rb, d.primer_bap] 
-        },
-        { 
-            id: 'chartSekunder', 
-            data: [d.sekunder_baik, d.sekunder_rr, d.sekunder_rb, d.sekunder_bap] 
-        },
-        { 
-            id: 'chartPintu', 
-            data: [d.pintu_baik, d.pintu_rr, d.pintu_rb, 0] 
-        }
-    ];
-
-    configs.forEach(config => {
-        const canvas = document.getElementById(config.id);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-
-        if (window[config.id] instanceof Chart) {
-            window[config.id].destroy();
-        }
-
-        const totalValue = config.data.reduce((a, b) => a + b, 0);
-
-        window[config.id] = new Chart(ctx, {
-            type: 'doughnut',
-            plugins: [ChartDataLabels], 
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: totalValue === 0 ? [1] : config.data,
-                    backgroundColor: totalValue === 0 ? ['#e9ecef'] : colors,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    datalabels: {
-                        display: totalValue > 0,
-                        color: '#fff',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (val) => ((val * 100) / totalValue).toFixed(1) + "%"
-                    },
-                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }
+            const configs = [
+                { 
+                    id: 'chartPrimer', 
+                    data: [d.primer_baik, d.primer_rr, d.primer_rb, d.primer_bap] 
                 },
-                cutout: '65%'
+                { 
+                    id: 'chartSekunder', 
+                    data: [d.sekunder_baik, d.sekunder_rr, d.sekunder_rb, d.sekunder_bap] 
+                },
+                { 
+                    id: 'chartTersier', 
+                    data: [d.tersier_baik || 0, d.tersier_rr || 0, d.tersier_rb || 0, d.tersier_bap || 0] 
+                }
+        ];
+
+        configs.forEach(config => {
+            const canvas = document.getElementById(config.id);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (window[config.id] instanceof Chart) {
+                window[config.id].destroy();
             }
+
+            const totalValue = config.data.reduce((a, b) => a + b, 0);
+
+            window[config.id] = new Chart(ctx, {
+                type: 'doughnut',
+                plugins: [ChartDataLabels], 
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: totalValue === 0 ? [1] : config.data,
+                        backgroundColor: totalValue === 0 ? ['#e9ecef'] : colors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: totalValue > 0,
+                            color: '#fff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (val) => ((val * 100) / totalValue).toFixed(1) + "%"
+                        },
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }
+                    },
+                    cutout: '65%'
+                }
+            });
         });
-    });
-}
+    }
 
 
         function initBangunanTable() {
