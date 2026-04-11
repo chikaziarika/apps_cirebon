@@ -1,5 +1,6 @@
-package com.example.frontend
+package id.dputrkabcirebon.sirigasi
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity: FlutterActivity() {
+}

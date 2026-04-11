@@ -114,7 +114,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   ];
 
   final List<Map<String, String>> _bangunanChoices = [
-    // KELOMPOK B (BENDUNG & UTAMA)
     {'code': 'B01', 'name': 'B01 - Bendung'},
     {'code': 'B02', 'name': 'B02 - Bendung Gerak'},
     {'code': 'B03', 'name': 'B03 - Pengambilan Bebas'},
@@ -122,8 +121,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     {'code': 'B06', 'name': 'B06 - Bendungan'},
     {'code': 'B07', 'name': 'B07 - Pompa Elektrik'},
     {'code': 'B99', 'name': 'B99 - Pangkal Saluran (Tanpa Bangunan)'},
-
-    // KELOMPOK C (PELENGKAP)
     {'code': 'C01', 'name': 'C01 - Pengukur Debit'},
     {'code': 'C02', 'name': 'C02 - Siphon'},
     {'code': 'C03', 'name': 'C03 - Gorong-gorong'},
@@ -146,8 +143,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     {'code': 'C20', 'name': 'C20 - Outlet'},
     {'code': 'C21', 'name': 'C21 - Krib'},
     {'code': 'C22', 'name': 'C22 - Tanggul'},
-
-    // KELOMPOK P (PENGATUR)
     {'code': 'P01', 'name': 'P01 - Bagi'},
     {'code': 'P02', 'name': 'P02 - Bagi Sadap'},
     {'code': 'P03', 'name': 'P03 - Sadap'},
@@ -176,10 +171,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       _checkDraftSurvey();
     });
   }
-
-  // MASUKKAN INI DI DALAM _SurveySaluranPageState
   Future<void> _prosesSimpanKeLocal() async {
-    // 1. Tampilkan Loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -187,8 +179,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     );
 
     try {
-      // 2. Ambil data yang sedang dikerjakan (JSON yang tadi Bapak log)
-      // Pastikan variabel 'data' ini berisi Map yang lengkap (ada path_kondisi, koordinat, dll)
       Map<String, dynamic> dataSurvey = {
         'di_id': widget.dataDI['id'],
         'nama_saluran': _namaSaluranCtrl.text,
@@ -197,10 +187,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         'keterangan_rr': _keteranganKondisiCtrl.text,
         'keterangan_rb': _keteranganKondisiCtrl.text,
         'keterangan_bap': _keteranganBapCtrl.text,
-        // ... tambahkan field lain yang dibutuhkan oleh syncSaluran
       };
-
-      // 3. Simpan ke Database Lokal (HP)
       bool suksesLokal = await DatabaseService().simpanKeteranganSurvey(
         diId: widget.dataDI['id'],
         ketBaik: _keteranganUmumCtrl.text,
@@ -210,8 +197,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       );
 
       if (suksesLokal) {
-        // 4. LANGSUNG SINKRON KE SERVER
-        // Kita panggil fungsi syncSaluran yang sudah ada di ApiService Bapak
         bool suksesServer = await ApiService().syncSaluran(dataSurvey);
 
         Navigator.pop(context); // Tutup Loading
@@ -243,8 +228,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     final unfinished = await DatabaseService().getUnfinishedSurvey(
       widget.dataDI['id'],
     );
-
-    // Jika ada data yang status_sync nya masih 0 (belum tersinkron)
     if (unfinished != null && unfinished['status_sync'] == 0) {
       _showSurveyTerputusDialog();
     }
@@ -279,13 +262,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   void _initLocationMonitoring() async {
-    // 1. Cek izin GPS
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-
-    // 2. Pantau posisi terus menerus (High Accuracy)
     Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -298,8 +278,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       setState(() {
         _currentLat = p.latitude;
         _currentLng = p.longitude;
-
-        // Jika peta belum ada titik sama sekali (baru buka), pusatkan ke orangnya
         if (_currentPath.isEmpty && !_isTracking) {
           _mapController.move(LatLng(p.latitude, p.longitude), 15.0);
         }
@@ -376,14 +354,11 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       } catch (e) {
         debugPrint("Offline/Error Server: $e");
       }
-
-      // 2. Ambil dari Lokal (Gunakan list yang sudah difilter)
       final sLocal = await db.getUniqueSaluranByDI(diId);
       final bLocal = await db.getUniqueBangunanByDI(diId);
 
       if (!mounted) return;
       setState(() {
-        // List Saluran
         _listHuluSaluran = ["-- Pilih Saluran --", "INPUT MANUAL"];
         for (var item in sLocal) {
           var n = item['nama_saluran'];
@@ -393,12 +368,9 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
             _listHuluSaluran.add(n.toString());
           }
         }
-
-        // List Bangunan
         _listHuluBangunan = ["-- Pilih Bangunan --", "INPUT MANUAL"];
         for (var item in bLocal) {
           var n = item['nama_bangunan'];
-          // Filter agar data sampah seperti "null" atau string kosong tidak masuk
           if (n != null &&
               n.toString().toLowerCase() != "null" &&
               n.toString().trim().isNotEmpty &&
@@ -408,8 +380,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
             _listHuluBangunan.add(n.toString());
           }
         }
-
-        // Reset pilihan agar tidak error
         _selectedHulu = _huluCategory == 'Saluran'
             ? _listHuluSaluran[0]
             : _listHuluBangunan[0];
@@ -465,8 +435,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                   _selectedKondisi = draft['kondisi_aktif'] ?? 'BAIK';
                   _huluSaluranCtrl.text = draft['nama_hulu'] ?? '';
                   _isManualHulu = draft['is_manual_hulu'] == 1;
-
-                  // Decode Path LatLng
                   if (draft['path_data'] != null) {
                     Iterable list = jsonDecode(draft['path_data']);
                     _currentPath = list
@@ -530,7 +498,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     } catch (e) {
       debugPrint("Error Kamera: $e");
     } finally {
-      // 2. Apapun yang terjadi, nyalakan lagi GPS setelah kamera tertutup
       if (_isTracking && !_isPaused) {
         _positionStream?.resume();
       }
@@ -540,7 +507,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   void _ambilFoto(String tipe) async {
     final ImagePicker picker = ImagePicker();
     try {
-      // Pastikan koordinat ada sebelum ambil foto
       if (_currentLat == null || _currentLng == null) {
         ScaffoldMessenger.of(
           context,
@@ -556,17 +522,13 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
       if (fotoTerambil != null) {
         setState(() {
-          // Tambahkan ke list foto sesuai tipe untuk dikirim ke admin
           if (_fotoSaluran[tipe] == null) _fotoSaluran[tipe] = [];
           _fotoSaluran[tipe]!.add(fotoTerambil.path);
-
-          // Tambahkan marker ke peta
           _markersKondisi.add(
             Marker(
               point: LatLng(_currentLat!, _currentLng!),
               width: 40,
               height: 40,
-              // Gunakan Center agar icon pas di titik koordinat
               child: const Center(
                 child: Icon(
                   Icons.camera_alt,
@@ -585,21 +547,14 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   void _gantiKondisi(String kondisiBaru) {
-    // --- 1. VALIDASI AWAL ---
-
-    // A. Cek apakah ada pergerakan (koordinat)
     if (_currentPath.isEmpty) {
       _showWarning("GPS belum mengunci lokasi, silakan tunggu.");
       return;
     }
-
-    // B. Wajib isi Keterangan
     if (_keteranganKondisiCtrl.text.trim().isEmpty) {
       _showWarning("Keterangan untuk kondisi $_selectedKondisi wajib diisi!");
       return;
     }
-
-    // C. Wajib ambil Foto (Minimal 1 foto)
     if (_currentFotos.isEmpty) {
       _showWarning("Ambil foto segmen $_selectedKondisi dulu, Pak!");
       return;
@@ -609,8 +564,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     LatLng titikMarker = _currentPath.last;
     String kondisiSaatIni = _selectedKondisi;
     String teksKeterangan = _keteranganKondisiCtrl.text;
-
-    // --- 2. LOGIKA PENYIMPANAN MARKER & POLYLINE ---
     _markersKondisi.add(
       Marker(
         point: titikMarker,
@@ -638,8 +591,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         );
       });
     }
-
-    // --- 3. MASUKKAN KE LIST DATA ---
     _segmenKondisi.add({
       'kondisi': kondisiSaatIni,
       'panjang': _jarakSegmenIni,
@@ -650,8 +601,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           "${_currentPath.last.latitude},${_currentPath.last.longitude}",
       'fotos': List.from(_currentFotos),
     });
-
-    // --- 4. RESET & CLEAR TOTAL (SEPERTI YANG BAPAK MINTA) ---
     setState(() {
       LatLng lastPoint = _currentPath.last;
 
@@ -659,14 +608,8 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         _panjangBap += _jarakSegmenIni;
       }
 
-      // String kondisiLama = _selectedKondisi;
-
       _keteranganKondisiCtrl.clear();
       _currentFotos = [];
-
-      // if (_fotoSaluran[kondisiLama] != null) {
-      //   _fotoSaluran[kondisiLama] = [];
-      // }
       _currentPath = [lastPoint]; // Reset jalur mulai dari titik terakhir
       _jarakSegmenIni = 0;
 
@@ -675,8 +618,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
     _autoSaveDraft();
   }
-
-  // Fungsi pembantu untuk menampilkan pesan peringatan
   void _showWarning(String pesan) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -702,13 +643,9 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     }
     
     LatLng lokasiSaatIni = _currentPath.last;
-
-    // 1. PAUSE TRACKING SEBELUM BUKA FORM
     if (_isTracking && !_isPaused) {
       _pauseTracking(); // Hentikan GPS sementara
     }
-
-    // Ambil daftar bangunan yang sudah pernah dibuat di DI ini (sebagai opsi Hulu)
     final db = DatabaseService();
     final dbClient = await db.database;
     final List<Map<String, dynamic>> bangunanLokal = await dbClient.query(
@@ -765,8 +702,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           ),
         );
       });
-      
-      // 3. TAMPILKAN INSTRUKSI LANJUT SURVEY KE SURVEYOR
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("✅ Bangunan tersimpan! Silakan tekan tombol 'Lanjut/Play' untuk meneruskan tracking saluran."),
@@ -824,15 +759,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                   final int? idTarget = data['id'];
 
                   if (idTarget != null) {
-                    // 1. Hapus data utama di database
                     await DatabaseService().deleteSaluran(idTarget);
-
-                    // 2. Hapus draft tracking terkait jika ada
                     if (data['di_id'] != null) {
                       await DatabaseService().deleteDraft(data['di_id']);
                     }
-
-                    // 3. REFRESH UI: Cukup panggil setState agar FutureBuilder jalan lagi
                     setState(() {});
 
                     if (mounted) {
@@ -859,8 +789,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       },
     );
   }
-
-  // Helper untuk tampilan baris detail di dalam dialog
   Widget _buildDetailRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -932,7 +860,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         icon: const Icon(Icons.sync_problem, color: Colors.orange),
         tooltip: "Sinkronisasi Ulang & Bersihkan Duplikat",
         onPressed: () async {
-          // Tampilkan loading
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -995,7 +922,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                   final data = filtered[index];
 
                   return ExpansionTile(
-                    // --- KIRI: Ikon Aset ---
                     leading: Image.asset(
                       'assets/icons/${data['kode_aset'] ?? 'S01'}.png',
                       width: 25,
@@ -1010,15 +936,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                         fontSize: 13,
                       ),
                     ),
-                    // subtitle: Text(
-                    //   "Total Panjang: ${(data['panjang_saluran'] ?? 0).toStringAsFixed(2)} m",
-                    //   style: const TextStyle(fontSize: 10),
-                    // ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          // Kita hitung panjangnya langsung dari data segmen
                           "Panjang: ${double.tryParse(data['panjang'].toString())?.toStringAsFixed(2) ?? '0.00'} m | ${(data['fotos'] is List ? data['fotos'].length : 0)} Foto",
                           style: const TextStyle(fontSize: 11),
                         ),
@@ -1082,7 +1003,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                           ? (jsonDecode(data['path_kondisi']) as List).asMap().entries.map((
                               segEntry,
                             ) {
-                              // VARIABEL DEFINISI DI SINI
                               int segIdx = segEntry.key;
                               var segData = segEntry.value;
                               String kondisi = (segData['kondisi'] ?? "-")
@@ -1115,7 +1035,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                     "Panjang: ${panjang.toStringAsFixed(2)} meter",
                                     style: const TextStyle(fontSize: 11),
                                   ),
-                                  // PINDAHKAN TOMBOL KE SINI AGAR TIDAK ERROR
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -1126,7 +1045,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                           size: 18,
                                         ),
                                         onPressed: () {
-                                          // Ambil koordinat dengan fallback (jika awal kosong, ambil akhir)
                                           String? kordinat =
                                               segData['titik_awal'] ??
                                               segData['titik_akhir'];
@@ -1141,8 +1059,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                               final double lng = double.parse(
                                                 parts[1].trim(),
                                               );
-
-                                              // Validasi angka agar tidak pindah ke koordinat 0,0
                                               if (lat != 0.0 && lng != 0.0) {
                                                 _mapController.move(
                                                   LatLng(lat, lng),
@@ -1173,7 +1089,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                           size: 20,
                                         ),
                                         onPressed: () {
-                                          // Ambil data foto yang sudah ada (asumsi disimpan dalam segData['fotos'] berupa list path)
                                           List listFotos =
                                               segData['fotos'] != null
                                               ? List.from(segData['fotos'])
@@ -1187,7 +1102,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                           showDialog(
                                             context: context,
                                             builder: (c) => StatefulBuilder(
-                                              // Menggunakan StatefulBuilder agar dialog bisa update UI saat foto ditambah
                                               builder: (context, setDialogState) => AlertDialog(
                                                 title: Text(
                                                   "Edit Segmen ${segIdx + 1}",
@@ -1221,7 +1135,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                                                         ),
                                                       ),
                                                       const SizedBox(height: 5),
-                                                      // Tampilkan Preview Foto
                                                       Wrap(
                                                         spacing: 5,
                                                         children: listFotos
@@ -1392,7 +1305,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      // Jika sembunyi, geser ke atas sampai minus 200 pixel
       top: _isUIVisible ? MediaQuery.of(context).padding.top + 15 : -200, 
       left: 15,
       right: 15,
@@ -1463,7 +1375,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      // Jika sembunyi, geser ke bawah sampai minus 150 pixel
       bottom: _isUIVisible ? MediaQuery.of(context).padding.bottom + 15 : -150, 
       left: 15,
       right: 15,
@@ -1477,7 +1388,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // TOMBOL KONDISI
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _isTracking ? () async {
@@ -1500,8 +1410,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               ),
             ),
             const SizedBox(width: 12),
-
-            // TOMBOL MULAI / PAUSE
             FloatingActionButton(
               heroTag: "btnCenter",
               elevation: 2, 
@@ -1520,8 +1428,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               ),
             ),
             const SizedBox(width: 12),
-
-            // TOMBOL BANGUNAN
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () {
@@ -1577,7 +1483,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         extendBodyBehindAppBar: true, 
         body: Stack(
           children: [
-            // 1. PETA GOOGLE MAPS STANDAR
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -1639,16 +1544,11 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 ),
               ],
             ),
-
-            // 2. KARTU INFO PRA-SURVEY (BISA HIDE/SHOW)
             _buildTopInfoCard(),
-
-            // 3. TOMBOL KANAN BAWAH (HIDE UI & PUSAT LOKASI)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
               right: 15,
-              // Posisi tombol turun merapat ke bawah jika bottom bar disembunyikan
               bottom: _isUIVisible 
                   ? MediaQuery.of(context).padding.bottom + 90 
                   : MediaQuery.of(context).padding.bottom + 15, 
@@ -1692,8 +1592,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 ],
               ),
             ),
-
-            // 4. NAVIGASI BAWAH ELEGAN (BISA HIDE/SHOW)
             _buildBottomNavigationBar(),
           ],
         ),
@@ -1808,7 +1706,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    // --- TAB 1: KETERANGAN UMUM ---
                     SingleChildScrollView( // Tambahkan ini agar aman saat ngetik panjang
                       child: Column(
                         children: [
@@ -1829,8 +1726,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                         ],
                       ),
                     ),
-
-                    // --- TAB 2: DETAIL SEGMEN ---
                     SingleChildScrollView(
                       child: Column(
                         children: [
@@ -1842,7 +1737,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // Bungkus tombol dengan Expanded agar otomatis menyesuaikan layar
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
@@ -1919,7 +1813,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 ? null
                 : _simpanSurveyData,
             icon: const Icon(Icons.save),
-            // Teks tombol simpan juga bisa berubah jika Bapak mau
             label: Text(
               _isEditingMode ? "UPDATE HASIL SURVEY" : "SIMPAN SURVEY BARU",
             ),
@@ -1937,18 +1830,15 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _startTracking,
-                  // Ikon berubah: play_arrow untuk lanjut, add untuk baru
                   icon: Icon(
                     _isEditingMode
                         ? Icons.play_circle_fill
                         : Icons.add_location_alt,
                   ),
-                  // Teks berubah sesuai status editing
                   label: Text(
                     _isEditingMode ? "LANJUTKAN SURVEY" : "MULAI SURVEY BARU",
                   ),
                   style: ElevatedButton.styleFrom(
-                    // Warna berubah: Oranye (Peringatan Edit) vs Hijau (Data Baru)
                     backgroundColor: _isEditingMode
                         ? Colors.orange
                         : Colors.green,
@@ -1986,8 +1876,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       ],
     );
   }
-
-  // Fungsi tambahan untuk merapikan UI Peta
   Widget _buildOverlayInfoKM() {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -2031,11 +1919,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   Widget _buildFotoPreview() {
-    // 1. Ambil list foto dengan aman. Jika null, berikan list kosong []
-    // Ini kunci agar tidak crash (Null Safety)
     final List<String> daftarFoto = _fotoSaluran[_selectedKondisi] ?? [];
-
-    // 2. Cek apakah list kosong
     if (daftarFoto.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 10),
@@ -2083,31 +1967,23 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
   Future<List<Map<String, dynamic>>> _getCombinedSaluranData() async {
     final db = DatabaseService();
-
-    // 1. Ambil data dari HP (SQLite) - Ini untuk data yang status_sync = 0
     List<Map<String, dynamic>> dataLokal = await db.getPendingSaluran(
       widget.dataDI['id'],
     );
-
-    // Buat list baru yang bisa dimodifikasi (Mutable)
     List<Map<String, dynamic>> combinedList = List.from(dataLokal);
 
     try {
-      // 2. Ambil data dari server
       final serverData = await ApiService().fetchSaluranMaster(
         widget.dataDI['id'],
       );
 
       for (var s in serverData) {
-        // FILTER: Ambil yang is_approved-nya FALSE (Tanda silang merah di Django Admin)
         if (s['is_approved'] == false) {
-          // Cek duplikat berdasarkan nama agar tidak muncul double
           bool isDuplicate = combinedList.any(
             (l) => l['nama_saluran'] == s['nama_saluran'],
           );
 
           if (!isDuplicate) {
-            // CLONE MAP: Pakai Map.from agar tidak error "read-only" saat tambah flag
             var item = Map<String, dynamic>.from(s);
             item['is_from_server'] = true;
             combinedList.add(item);
@@ -2122,9 +1998,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   Future<void> _bukaGoogleMaps(double lat, double lng) async {
-    // Skema URL untuk langsung membuka navigasi di aplikasi Google Maps
     final String googleMapsUrl = "google.navigation:q=$lat,$lng&mode=d";
-    // Skema cadangan jika aplikasi tidak terinstall (buka via browser)
     final String backupUrl =
         "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
 
@@ -2141,7 +2015,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       }
     } catch (e) {
       debugPrint("Error buka Maps: $e");
-      // Opsional: Tampilkan SnackBar jika gagal
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Gagal membuka Google Maps")),
       );
@@ -2150,7 +2023,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
   Future<void> _loadExistingMarkers() async {
     final db = DatabaseService();
-    // Ambil semua survey (bangunan) yang nama_salurannya sama dengan yang sedang diedit
     final bangunanList = await db.database.then(
       (d) => d.query(
         'surveys',
@@ -2174,7 +2046,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
             height: 80,
             child: GestureDetector(
               onTap: () {
-                // --- INI DIALOG NAVIGASINYA ---
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -2242,20 +2113,15 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       print("SINKRON: Total bangunan dari server: ${allBangunan.length}");
 
       final filtered = allBangunan.where((b) {
-        // Kita ambil Nama Saluran dari data Bangunan di Server
         String namaSaluranServer = (b['nama_saluran'] ?? "")
             .toString()
             .trim()
             .toLowerCase();
-
-        // Kita ambil Nama Saluran yang sedang aktif di Aplikasi (dari Controller)
         String namaSaluranTarget = _namaSaluranCtrl.text.trim().toLowerCase();
 
         print(
           "PEMBANDING: Server($namaSaluranServer) vs Aplikasi($namaSaluranTarget)",
         );
-
-        // Bandingkan berdasarkan NAMA, bukan ID
         return namaSaluranServer == namaSaluranTarget;
       }).toList();
 
@@ -2266,8 +2132,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       for (var b in filtered) {
         String namaBgn =
             b['nomenklatur_ruas'] ?? b['nama_bangunan'] ?? "Tanpa Nama";
-
-        // --- CEK DUPLIKAT DI SINI ---
         final existing = await db.database.then(
           (d) => d.query(
             'surveys',
@@ -2412,14 +2276,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         await DatabaseService().insertSaluran(dataSimpan);
       }
 
-      // bool success = await ApiService().syncSaluran(dataSimpan);
-      // if (success) {
-      //   await DatabaseService().updateStatusSurvey(diId, 1);
-      // }
-
       if (!mounted) return;
-
-      // 6. HAPUS DRAFT & RESET UI
       await DatabaseService().deleteDraft(diId);
       _stopTracking();
 
@@ -2459,7 +2316,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       icon: Icons.hourglass_empty,
       child: Column(
         children: [
-          // FITUR SEARCH
           TextField(
             decoration: InputDecoration(
               hintText: "Cari bangunan...",
@@ -2495,8 +2351,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 final uniqueData = dataAsli
                     .where((item) => seen.add(item['nama_bangunan']))
                     .toList();
-
-                // Filter berdasarkan search keyword dari data yang sudah unik
                 final filteredData = uniqueData.where((item) {
                   final nama = item['nama_bangunan'].toString().toLowerCase();
                   return nama.contains(_searchKeyword);
@@ -2555,7 +2409,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                               if (lat != 0.0) {
                                 _directionToPoint(lat, lng);
                               } else {
-                                // 2. Jika koordinat bangunan 0.0, arahkan ke koordinat awal saluran (Polyline)
                                 if (_existingPolylines.isNotEmpty) {
                                   LatLng titikSaluran =
                                       _existingPolylines.first.points.first;
@@ -2666,13 +2519,11 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // DIBUNGKUS EXPANDED AGAR TEKS MENGALAH
               Expanded(
                 child: Row(
                   children: [
                     Icon(icon, size: 18, color: Colors.blue),
                     const SizedBox(width: 8),
-                    // PAKAI FLEXIBLE + ELLIPSIS
                     Flexible(
                       child: Text(
                         title,
@@ -2717,7 +2568,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                   itemCount: _existingMarkers.length,
                   itemBuilder: (context, index) {
                     final m = _existingMarkers[index];
-                    // Asumsikan data nama ada di metadata marker atau ambil dari list asal
                     return ListTile(
                       leading: CircleAvatar(child: Text("${index + 1}")),
                       title: Text("Bangunan ${index + 1}"),
@@ -2747,7 +2597,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   void _editPendingSurvey(Map<String, dynamic> oldData) async {
-    // Pastikan konversi ke double aman, gunakan 0.0 jika data Null atau korup
     double lat = 0.0;
     double lng = 0.0;
     double jarak = 0.0;
@@ -2765,8 +2614,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     } catch (e) {
       debugPrint("Error parsing koordinat: $e");
     }
-
-    // Arahkan peta jika koordinat valid
     if (lat != 0.0 && lng != 0.0) {
       _directionToPoint(lat, lng);
     }
@@ -2823,10 +2670,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // setState(() {
-      //   _isLoadingMapData = true; // Pinjam loading untuk nunggu GPS stabil
-      // });
-
       setState(() {
         _isTracking = true;
         _isPaused = false;
@@ -2834,8 +2677,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         _totalDistance = 0.0;
         _jarakSegmenIni = 0.0;
       });
-
-      // TAMPILKAN DIALOG RECHECK KOORDINAT
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -2908,7 +2749,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               }
 
               _currentPath.add(pt);
-              // _mapController.move(pt, 18.0);
             });
 
             _autoSaveDraft();
@@ -2935,7 +2775,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   void _lanjutkanSurveySaluran(Map<String, dynamic> data) async {
-    // 1. Validasi awal
     String pathRaw = data['path_koordinat'] ?? "";
     if (pathRaw.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2945,21 +2784,16 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     }
 
     try {
-      // 2. Ambil data segmen
       List<Map<String, dynamic>> segmenTemp = [];
       if (data['path_kondisi'] != null && data['path_kondisi'] != "") {
         var decoded = jsonDecode(data['path_kondisi']);
         segmenTemp = List<Map<String, dynamic>>.from(decoded);
       }
-
-      // 3. Pecah string koordinat menjadi List<LatLng>
       List<String> pointsStr = pathRaw.split('|');
       List<LatLng> fullPath = pointsStr.map((p) {
         List<String> coords = p.split(',');
         return LatLng(double.parse(coords[0]), double.parse(coords[1]));
       }).toList();
-
-      // 4. Hitung Jarak Asli (Sangat penting untuk Emulator)
       double totalJarakAsli = 0;
       for (int i = 0; i < fullPath.length - 1; i++) {
         totalJarakAsli += Geolocator.distanceBetween(
@@ -2971,8 +2805,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       }
 
       List<Polyline> coloredHistory = [];
-
-      // 5. Logika penggambaran garis
       if (segmenTemp.isNotEmpty && fullPath.length > 1 && totalJarakAsli > 0) {
         int currentStartIndex = 0;
         for (int i = 0; i < segmenTemp.length; i++) {
@@ -3005,13 +2837,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           currentStartIndex = endIndex - 1;
         }
       } else {
-        // Jika data jarak 0 (sering di emulator), gambar garis biru default
         coloredHistory.add(
           Polyline(points: fullPath, color: Colors.blue, strokeWidth: 5),
         );
       }
-
-      // 6. Update State sekaligus
       setState(() {
         _editingSaluranId = data['id'];
         _isEditingMode = true;
@@ -3021,15 +2850,11 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         _totalDistance = totalJarakAsli;
         _namaSaluranCtrl.text = data['nama_saluran'] ?? "";
       });
-
-      // 7. Beri jeda sedikit sebelum gerakkan peta (Agar MapController siap)
       Future.delayed(const Duration(milliseconds: 500), () {
         if (fullPath.isNotEmpty && mounted) {
           _mapController.move(fullPath.last, 17.0);
         }
       });
-
-      // 8. Load data bangunan terkait
       if (data['id'] != null) {
         await _sinkronisasiBangunanKeLokal(data['id']);
         await _loadExistingMarkers();
@@ -3046,14 +2871,12 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       List<dynamic> decoded = jsonDecode(dataFoto);
       return decoded.map((path) {
         String p = path.toString();
-        // Jika path tidak diawali '/' dan bukan 'http', berarti ini path media Django
         if (!p.startsWith('http') && !p.startsWith('/data/')) {
           return "${ApiService.baseUrl}/media/$p";
         }
         return p;
       }).toList();
     } catch (e) {
-      // Jika bukan JSON, cek apakah ini string URL tunggal
       String p = dataFoto.toString();
       if (!p.startsWith('http') && !p.startsWith('/data/')) {
         return ["${ApiService.baseUrl}/media/$p"];
@@ -3071,8 +2894,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
   void _prosesSimpanSegmenBaru(Map<String, dynamic> dataForm) {
     if (_currentPath.isEmpty) return;
-
-    // 1. Simpan data segmen yang barusan dilewati ke list utama
     _segmenKondisi.add({
       'kondisi': _selectedKondisi, // Kondisi SEBELUM diubah
       'panjang': _jarakSegmenIni,
@@ -3083,8 +2904,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       'titik_akhir': "${_currentPath.last.latitude},${_currentPath.last.longitude}",
       'fotos': List.from(dataForm['fotos']),
     });
-
-    // 2. Tandai marker di peta untuk titik perubahan segmen
     LatLng titikMarker = _currentPath.last;
     _markersKondisi.add(
       Marker(
@@ -3096,8 +2915,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         ),
       ),
     );
-
-    // 3. Bekukan garis (Polyline) segmen sebelumnya ke history
     if (_currentPath.length > 1) {
       _pathHistory.add(
         Polyline(
@@ -3107,8 +2924,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         ),
       );
     }
-
-    // 4. Reset & Mulai Segmen Baru
     setState(() {
       LatLng lastPoint = _currentPath.last; // Bawa titik terakhir sebagai titik awal segmen baru
       
@@ -3146,7 +2961,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
     setState(() {
       _isTracking = false;
-      // JANGAN CLEAR _currentPath di sini agar garis tetap kelihatan di peta
     });
   }
 
@@ -3174,7 +2988,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         var idTarget = saluranId.toString().trim();
         return idDiBangunan == idTarget;
       }).toList();
-      // final filtered = allBangunan;
 
       List<Marker> markers = [];
       for (var b in filtered) {
@@ -3190,10 +3003,8 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
               point: LatLng(lat, lng),
               width: 80,
               height: 80,
-              // Ganti 'builder' menjadi 'child' sesuai versi flutter_map Bapak
               child: GestureDetector(
                 onTap: () {
-                  // --- DIALOG NAVIGASI DIMULAI DISINI ---
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -3281,13 +3092,11 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   }
 
   Future<void> _bukaNavigasiGoogleMaps(double lat, double lng) async {
-    // Format URL untuk navigasi Google Maps
     final Uri url = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
-      // Jika aplikasi Google Maps tidak terinstall, buka via browser
       final Uri webUrl = Uri.parse(
         "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
       );
@@ -3304,8 +3113,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       if (res.statusCode == 200) {
         var jsonResponse = jsonDecode(res.body);
         List<Polyline> lines = [];
-
-        // Ambil list dari key "data"
         var dataSaluran = jsonResponse['data'] as List;
 
         for (var item in dataSaluran) {
@@ -3315,11 +3122,8 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
             var coords = geom['coordinates'];
 
             if (type == "MultiLineString") {
-              // Looping untuk setiap jalur dalam MultiLine
               for (var line in coords) {
-                // Cek lagi apakah di dalamnya ada array lagi (antisipasi nested berlebih)
                 if (line is List && line.isNotEmpty && line[0] is List) {
-                  // Untuk struktur [[[lng, lat], [lng, lat]]]
                   List<LatLng> points = line.map<LatLng>((c) {
                     return LatLng(
                       double.parse(c[1].toString()), // Latitude
@@ -3343,8 +3147,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         setState(() {
           _existingPolylines = lines;
         });
-
-        // Pindahkan kamera ke titik pertama agar langsung kelihatan
         if (lines.isNotEmpty && lines.first.points.isNotEmpty) {
           _mapController.move(lines.first.points.first, 15.0);
         }
@@ -3402,13 +3204,9 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
     _ketCtrl.dispose();
     _lebarCtrl.dispose();
     _tinggiCtrl.dispose();
-
-    // Bersihkan controller jumlah pintu
     _pB.dispose();
     _pRR.dispose();
     _pRB.dispose();
-
-    // Bersihkan controller dinamis di dalam Map (jika ada)
     _ketKondisi.forEach((key, controller) => controller.dispose());
     super.dispose();
   }
@@ -3416,7 +3214,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
   @override
   void initState() {
     super.initState();
-    // Panggil fungsi pencarian alamat otomatis berdasarkan koordinat yang dibawa dari Map
     _getAlamatOtomatis(widget.lat, widget.lng);
 
     if (widget.existingData != null) {
@@ -3449,13 +3246,11 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
         for (int i = 1; i <= 5; i++) {
           String? pathFoto = widget.existingData!['foto$i'];
           if (pathFoto != null && pathFoto.isNotEmpty) {
-            // Masukkan path string dari database ke object File
             _fotos[i - 1] = File(pathFoto);
           }
         }
       });
     } else {
-      // 2. Jika mode INPUT BARU, jalankan deteksi alamat otomatis
       _getAlamatOtomatis(widget.lat, widget.lng);
     }
   }
@@ -3463,7 +3258,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
   Future<void> _ambilLokasiHPSekarang() async {
     Position pos = await Geolocator.getCurrentPosition();
     setState(() {
-      // Update alamat berdasarkan GPS HP
       _getAlamatOtomatis(pos.latitude, pos.longitude);
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -3492,7 +3286,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
             children: [
               Icon(icon, size: 18, color: Colors.orange),
               const SizedBox(width: 8),
-              // TAMBAHKAN EXPANDED DI SINI JUGA
               Expanded(
                 child: Text(
                   title,
@@ -3513,8 +3306,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
       ),
     );
   }
-
-  // Tambahkan variabel di State FormBangunanDetail
   Map<String, List<File?>> _fotoKondisi = {
     'BAIK': List.filled(5, null),
     'RR': List.filled(5, null),
@@ -3525,8 +3316,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
     'RR': TextEditingController(),
     'RB': TextEditingController(),
   };
-
-  // WIDGET BARU: Fieldset Kondisi Dinamis
   Widget _buildFieldsetKondisi(String label, String code, Color color) {
     return _buildFieldset(
       title: "Dokumentasi Kondisi $label",
@@ -3557,8 +3346,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
       ),
     );
   }
-
-  // Tambahkan fungsi Picker khusus kondisi
   Widget _buildFotoBoxKondisi(String code, int index) {
     return GestureDetector(
       onTap: () async {
@@ -3590,7 +3377,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
                   _fotos[index]!,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    // JIKA FILE LOKAL TIDAK ADA, TAMPILKAN PLACEHOLDER ATAU IKON
                     return Container(
                       color: Colors.grey[300],
                       child: const Icon(Icons.broken_image, color: Colors.red),
@@ -3668,8 +3454,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          // subLocality biasanya Desa/Kelurahan
-          // locality biasanya Kecamatan
           _d.text = place.subLocality ?? "";
           _k.text = place.locality ?? "";
         });
@@ -3754,7 +3538,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
               ],
             ),
             const SizedBox(height: 20),
-            // Gunakan ElevatedButton standar agar tidak error Undefined 'SInputButton'
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -3777,8 +3560,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
       ),
     );
   }
-
-  // Tambahkan juga widget _resultBox di dalam class yang sama
   Widget _resultBox(String label, String value) {
     return Column(
       children: [
@@ -3799,7 +3580,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
   }
 
   void _simpanData() async {
-    // 1. Validasi: Nama bangunan wajib diisi
     if (_n.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Nama Bangunan Wajib Diisi!")),
@@ -3809,8 +3589,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
 
     final prefs = await SharedPreferences.getInstance();
     String namaSurveyor = prefs.getString('username') ?? "Anonim";
-
-    // 2. Siapkan Map data (Pakai variabel 'data')
     Map<String, dynamic> data = {
       'di_id': widget.diId,
       'nama_di': widget.namaDI,
@@ -3867,7 +3645,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- BAGIAN 1: INPUT MANUAl ---
                   const Text(
                     "Input Manual:",
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -3904,41 +3681,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
                       ),
                     ],
                   ),
-
-                  // const SizedBox(height: 20),
-                  // const Divider(),
-
-                  // // --- BAGIAN 2: SCAN AR ---
-                  // const Text(
-                  //   "Gunakan Sensor (Otomatis):",
-                  //   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  // ),
-                  // const SizedBox(height: 8),
-                  // SizedBox(
-                  //   width: double.infinity,
-                  //   child: ElevatedButton.icon(
-                  //     onPressed: () => _mulaiUkurOtomatis(context),
-                  //     icon: const Icon(Icons.view_in_ar),
-                  //     label: const Text("SCAN DIMENSI VIA KAMERA AR"),
-                  //     style: ElevatedButton.styleFrom(
-                  //       backgroundColor: Colors.blueAccent,
-                  //       foregroundColor: Colors.white,
-                  //       padding: const EdgeInsets.symmetric(vertical: 15),
-                  //       shape: RoundedRectangleBorder(
-                  //         borderRadius: BorderRadius.circular(8),
-                  //       ),
-                  //     ),
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 5),
-                  // const Text(
-                  //   "* Klik tombol di atas jika ingin mengukur menggunakan sensor AR kamera.",
-                  //   style: TextStyle(
-                  //     fontSize: 10,
-                  //     fontStyle: FontStyle.italic,
-                  //     color: Colors.grey,
-                  //   ),
-                  // ),
                 ],
               ),
             ),
@@ -3962,7 +3704,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
                     onChanged: (v) {
                       setState(() {
                         _sel = v!;
-                        // Jika yang dipilih bukan bangunan berpintu, kosongkan nilainya
                         if (![
                           'B01',
                           'B02',
@@ -4032,10 +3773,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
                 ],
               ),
             ),
-
-            // ==========================================
-            // 2. FIELDSET LOKASI
-            // ==========================================
             _buildFieldset(
               title: "2. Lokasi Aset",
               icon: Icons.location_on,
@@ -4063,7 +3800,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
                 ],
               ),
             ),
-            // TAMPILAN KOORDINAT (TRIGGERED)
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -4201,7 +3937,6 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar _tabBar;
 
   @override
-  // Mengambil tinggi standar TabBar
   double get minExtent => _tabBar.preferredSize.height;
   @override
   double get maxExtent => _tabBar.preferredSize.height;
@@ -4212,8 +3947,6 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    // Menggunakan Material agar TabBar memiliki warna background yang solid
-    // dan efek visual yang benar saat diklik
     return Material(
       elevation: 1.0, // Memberikan sedikit bayangan di bawah tab
       color: Colors.white, // Menentukan warna background tab menjadi putih
@@ -4223,7 +3956,6 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    // Kembalikan true jika ingin tab bisa berubah warna/state secara dinamis
     return false;
   }
 }

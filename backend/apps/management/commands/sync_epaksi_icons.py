@@ -20,7 +20,6 @@ class Command(BaseCommand):
         count = 0
 
         for b in bangunans:
-            # Mengambil kode_aset dari DetailLayananBangunan yang terelasi (related_name='layanan_list')
             detail = b.layanan_list.first()
             if detail and detail.kode_aset:
                 icon_name = f"{detail.kode_aset}.png"

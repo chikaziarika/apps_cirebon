@@ -91,22 +91,16 @@ class DaerahIrigasi(models.Model):
         ('3', 'Kelompok 3 (< 150 ha) - Bobot Utama 50%:Tersier 50%'),
     ]
     kelompok_di = models.CharField(max_length=1, choices=KELOMPOK_DI_CHOICES, default='3')
-
-    # Statistik Jaringan PRIMER (Otomatis)
     primer_baik = models.FloatField(default=0, verbose_name="Primer Baik (m)")
     primer_rr = models.FloatField(default=0, verbose_name="Primer Rusak Ringan (m)")
     primer_rb = models.FloatField(default=0, verbose_name="Primer Rusak Berat (m)")
     primer_bap = models.FloatField(default=0, verbose_name="Primer Belum Ada Pasangan (m)")
     panjang_primer = models.FloatField(default=0, verbose_name="Total Panjang Primer (m)")
-
-    # Statistik Jaringan SEKUNDER (Otomatis)
     sekunder_baik = models.FloatField(default=0, verbose_name="Sekunder Baik (m)")
     sekunder_rr = models.FloatField(default=0, verbose_name="Sekunder Rusak Ringan (m)")
     sekunder_rb = models.FloatField(default=0, verbose_name="Sekunder Rusak Berat (m)")
     sekunder_bap = models.FloatField(default=0, verbose_name="Sekunder Belum Ada Pasangan (m)")
     panjang_sekunder = models.FloatField(default=0, verbose_name="Total Panjang Sekunder (m)")
-
-    # Statistik PINTU (Otomatis)
     pintu_baik = models.IntegerField(default=0, verbose_name="Pintu Baik")
     pintu_rr = models.IntegerField(default=0, verbose_name="Pintu Rusak Ringan")
     pintu_rb = models.IntegerField(default=0, verbose_name="Pintu Rusak Berat")
@@ -117,8 +111,6 @@ class DaerahIrigasi(models.Model):
     tersier_rb = models.FloatField(default=0, verbose_name="Tersier Rusak Berat (m)")
     tersier_bap = models.FloatField(default=0, verbose_name="Tersier Belum Ada Pasangan (m)")
     panjang_tersier = models.FloatField(default=0, verbose_name="Total Panjang Tersier (m)")
-
-    # 2. Field Otomatis (Akan di-set Read Only di Admin)
     total_luas_fungsional = models.FloatField(default=0, verbose_name="Total Luas Fungsional (Ha)")
     total_panjang_jaringan = models.FloatField(default=0, verbose_name="Total Panjang Jaringan (m)")
 
@@ -126,19 +118,13 @@ class DaerahIrigasi(models.Model):
 
     def update_totals(self):
         from django.db.models import Q, Sum, Count
-        
-        # 1. Jalur Kabel: Cari semua detail yang terhubung ke DI ini 
         qs_detail = DetailLayananBangunan.objects.filter(
             Q(bangunan__saluran__daerah_irigasi=self) | 
             Q(bangunan__daerah_irigasi=self)
         ).distinct()
-
-        # --- HITUNG LUAS ---
         total_luas = qs_detail.aggregate(Sum('luas_areal'))['luas_areal__sum'] or 0
         self.luas_fungsional = total_luas
         self.total_luas_fungsional = total_luas
-
-        # --- HITUNG PINTU ---
         manual_pintu = qs_detail.aggregate(
             baik=Sum('pintu_baik'),
             rr=Sum('pintu_rusak_ringan'),
@@ -155,8 +141,6 @@ class DaerahIrigasi(models.Model):
         self.pintu_rr = (manual_pintu['rr'] or 0) + (inline_pintu['rr'] or 0)
         self.pintu_rb = (manual_pintu['rb'] or 0) + (inline_pintu['rb'] or 0)
         self.jumlah_pintu = self.pintu_baik + self.pintu_rr + self.pintu_rb
-
-        # --- HITUNG SALURAN ---
         salurans = Saluran.objects.filter(daerah_irigasi=self)
 
         primers = salurans.filter(kode_aset_saluran='S01')
@@ -179,8 +163,6 @@ class DaerahIrigasi(models.Model):
         self.tersier_rb = round(sum(s.panjang_rb for s in tersiers), 2)
         self.tersier_bap = round(sum(s.panjang_bap for s in tersiers) if hasattr(tersiers.first(), 'panjang_bap') else 0, 2)
         self.panjang_tersier = self.tersier_baik + self.tersier_rr + self.tersier_rb + self.tersier_bap
-
-        # --- UPDATE DATABASE ---
         DaerahIrigasi.objects.filter(pk=self.pk).update(
             luas_fungsional=self.luas_fungsional,
             total_luas_fungsional=self.total_luas_fungsional,
@@ -199,24 +181,15 @@ class DaerahIrigasi(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        # =======================================================
-        # 1. LOGIKA EKSTRAK KOORDINAT DARI GEOJSON SAJA
-        # (TIDAK ADA LOGIKA LATITUDE, LONGITUDE, DESA, ATAU KECAMATAN DI SINI)
-        # =======================================================
         if self.geojson:
             try:
-                # Buka dan baca file
                 content = self.geojson.open('r')
                 raw_data = content.read()
-                
-                # Cek jika file kosong
                 if not raw_data:
                     print("File GeoJSON kosong!")
                 else:
                     data = json.loads(raw_data)
                     content.seek(0) 
-
-                    # Cek struktur GeoJSON
                     features = data.get('features', [])
                     if features:
                         geom = features[0].get('geometry', {})
@@ -230,13 +203,9 @@ class DaerahIrigasi(models.Model):
                         elif g_type == 'LineString':
                             lon, lat = coords[0]
                         elif g_type == 'Polygon':
-                            # Polygon: [[[lng, lat], [lng, lat]]]
                             lon, lat = coords[0][0]
                         elif g_type == 'MultiPolygon':
-                            # MultiPolygon: [[[[lng, lat]]]]
                             lon, lat = coords[0][0][0]
-
-                        # Update jika koordinat ditemukan
                         if lat and lon:
                             self.path_koordinat = f"{lat},{lon}"
                             print(f"Berhasil ekstrak GeoJSON D.I! Lat: {lat}, Lon: {lon}")
@@ -247,10 +216,6 @@ class DaerahIrigasi(models.Model):
 
             except Exception as e:
                 print(f"Error Ekstrak GeoJSON Detail: {str(e)}")
-
-        # =======================================================
-        # 2. LANJUTKAN PROSES SAVE KE DATABASE
-        # =======================================================
         super().save(*args, **kwargs)
 
     class Meta:
@@ -259,7 +224,6 @@ class DaerahIrigasi(models.Model):
 
 
     def to_json(self):
-        # Mengambil semua field DI dan daftar salurannya dalam bentuk JSON
         from .serializers import DaerahIrigasiSerializer
         serializer = DaerahIrigasiSerializer(self)
         return json.dumps(serializer.data)
@@ -566,16 +530,6 @@ class DetailLayananBangunan(models.Model):
 
     luas_areal = models.FloatField(default=0, verbose_name="Luas Areal Fungsional(Ha)")
 
-    # poligon_layanan = models.ForeignKey(
-    #     'LayerPendukung', 
-    #     on_delete=models.SET_NULL, 
-    #     null=True, 
-    #     blank=True, 
-    #     limit_choices_to={'kategori': 'lahan'}, 
-    #     verbose_name="Poligon Area Layanan Fungsional",
-    #     help_text="Pilih peta area yang dilayani oleh bangunan ini"
-    # )
-
     poligon_layanan = models.ManyToManyField(
         'LayerPendukung', 
         blank=True, 
@@ -596,16 +550,12 @@ class DetailLayananBangunan(models.Model):
         max_length=20, choices=JENIS_SALURAN_CHOICES, default='TERSIER', verbose_name="Jenis Saluran"
     )
     saluran_manual_kiri = models.CharField(max_length=100, blank=True, null=True, verbose_name="Input Nama")
-
-    # SISI TENGAH 
     nomenklatur_tengah = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nomenklatur")
     luas_tengah = models.FloatField(default=0, verbose_name="Luas Areal (Ha)")
     jenis_saluran_tengah = models.CharField(
         max_length=20, choices=JENIS_SALURAN_CHOICES, default='INDUK', verbose_name="Jenis Saluran"
     )
     saluran_manual_tengah = models.CharField(max_length=100, blank=True, null=True, verbose_name="Input Nama")
-
-    # SISI KANAN
     nomenklatur_kanan = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nomenklatur")
     luas_kanan = models.FloatField(default=0, verbose_name="Luas Areal (Ha)")
     jenis_saluran_kanan = models.CharField(
@@ -634,15 +584,8 @@ class DetailLayananBangunan(models.Model):
         verbose_name_plural = "DAFTAR NOMENKLATUR BANGUNAN PENGATUR"
 
     def save(self, *args, **kwargs):
-        # 1. Otomatis update luas_areal total
         self.luas_areal = (self.luas_kiri or 0) + (self.luas_tengah or 0) + (self.luas_kanan or 0)
-        
-        # 2. Hitung Pintu Total
         self.pintu_total_unit = (self.pintu_baik or 0) + (self.pintu_rusak_ringan or 0) + (self.pintu_rusak_berat or 0)
-        
-        # =======================================================
-        # 3. LOGIKA DUAL-SATELIT (OSM + ARCGIS) UNTUK ALAMAT
-        # =======================================================
         print("\n--- 🛰️ MEMULAI RADAR KOORDINAT BANGUNAN ---")
         
         desa_kosong = not self.desa or str(self.desa).strip() == '' or str(self.desa).strip().lower() == 'none'
@@ -653,10 +596,6 @@ class DetailLayananBangunan(models.Model):
                 try:
                     lat_str = str(self.latitude).replace(',', '.')
                     lng_str = str(self.longitude).replace(',', '.')
-                    
-                    # ----------------------------------------------------
-                    # SATELIT 1: OpenStreetMap (Nominatim)
-                    # ----------------------------------------------------
                     print(">> Menghubungi Satelit 1 (OpenStreetMap)...")
                     osm_geo = Nominatim(user_agent="sirigasi_cirebon_1")
                     loc_osm = osm_geo.reverse(f"{lat_str}, {lng_str}", exactly_one=True, timeout=5)
@@ -673,10 +612,6 @@ class DetailLayananBangunan(models.Model):
                             n_kec = addr_osm.get('city_district') or addr_osm.get('state_district') or addr_osm.get('municipality') or addr_osm.get('suburb') or addr_osm.get('town') or ''
                             self.kecamatan = str(n_kec).replace('Kecamatan ', '').strip()
                             if self.kecamatan: kec_kosong = False # Tandai kalau kec sudah ketemu
-
-                    # ----------------------------------------------------
-                    # SATELIT 2: ArcGIS ESRI (Jika Satelit 1 Gagal/Kurang)
-                    # ----------------------------------------------------
                     if desa_kosong or kec_kosong:
                         print(">> OpenStreetMap kurang lengkap. Ganti ke Satelit 2 (ArcGIS)...")
                         arcgis_geo = ArcGIS()
@@ -685,13 +620,9 @@ class DetailLayananBangunan(models.Model):
                         if loc_arc and loc_arc.raw.get('address'):
                             addr_arc = loc_arc.raw['address']
                             print(f">> Balasan ArcGIS: {addr_arc}")
-                            
-                            # Di ArcGIS: Desa biasanya masuk ke 'Neighborhood' atau 'District'
                             if desa_kosong:
                                 n_desa2 = addr_arc.get('Neighborhood') or addr_arc.get('District') or ''
                                 self.desa = str(n_desa2).replace('Desa ', '').replace('Kelurahan ', '').strip()
-                                
-                            # Di ArcGIS: Kecamatan biasanya masuk ke 'City'
                             if kec_kosong:
                                 n_kec2 = addr_arc.get('City') or addr_arc.get('District') or ''
                                 self.kecamatan = str(n_kec2).replace('Kecamatan ', '').replace('Kec. ', '').strip()
@@ -702,11 +633,7 @@ class DetailLayananBangunan(models.Model):
                     print(f"⚠️ Gagal menghubungi kedua satelit: {e}")
         
         print("------------------------------------------\n")
-
-        # 4. Panggil save utama
         super().save(*args, **kwargs)
-        
-        # 5. Trigger Update Daerah Irigasi
         target_di = None
         if self.bangunan.saluran:
             target_di = self.bangunan.saluran.daerah_irigasi
@@ -750,10 +677,7 @@ class LayerPendukung(models.Model):
         verbose_name_plural = "6. LAYER PENDUKUNG"
 
     def save(self, *args, **kwargs):
-        # Jalankan penyimpanan file terlebih dahulu
         super().save(*args, **kwargs)
-
-        # Logika Ekstraksi Khusus Luas Fungsional dari KMZ
         if self.kategori == 'lahan' and self.file_geojson.name.endswith('.kmz'):
             self.ekstrak_fungsional_kmz()
 
@@ -763,24 +687,15 @@ class LayerPendukung(models.Model):
                 content = zf.read('doc.kml')
                 root = ET.fromstring(content)
                 ns = {'kml': 'http://www.opengis.net/kml/2.2'}
-
-                # Cari semua Placemark
                 for pm in root.findall('.//kml:Placemark', ns):
                     name_node = pm.find('kml:name', ns)
                     nama_objek = name_node.text.upper() if name_node is not None else ""
-
-                    # Filter: Hanya proses jika nama mengandung "IGT_CIREBON_FUNGSIONAL"
-                    # atau jika format namanya "IGT_Cirebon_fungsional [NAMA DI]"
                     if "IGT_CIREBON_FUNGSIONAL" in nama_objek:
-                        
-                        # Ambil geometri Polygon
                         poly_node = pm.find('.//kml:Polygon', ns)
                         if poly_node is not None:
                             coord_node = poly_node.find('.//kml:coordinates', ns)
                             if coord_node is not None:
                                 coords_text = coord_node.text.strip()
-                                
-                                # Konversi koordinat KML ke format List GEOS
                                 points = []
                                 for p in coords_text.split():
                                     c = p.split(',')
@@ -789,14 +704,8 @@ class LayerPendukung(models.Model):
                                 
                                 if len(points) > 3:
                                     geom = Polygon(points)
-                                    
-                                    # Hitung Luas (Hektar) menggunakan transformasi UTM 49S (32749)
-                                    # agar akurat dalam satuan meter/hektar
                                     luas_m2 = GEOSGeometry(geom.wkt, srid=4326).transform(32749, clone=True).area
                                     luas_ha = round(luas_m2 / 10000, 2)
-
-                                    # Cari Daerah Irigasi yang cocok berdasarkan nama objek
-                                    # Contoh nama di KML: "IGT_Cirebon_fungsional KETOS"
                                     from .models import DaerahIrigasi
                                     for di in DaerahIrigasi.objects.all():
                                         if di.nama_di.upper() in nama_objek:
@@ -816,8 +725,6 @@ class AsetSaluran(models.Model):
         on_delete=models.CASCADE, 
         related_name='aset_fisik_saluran'
     )
-    
-    # Kolom dari gambar (Aset Saluran)
     nama_aset_saluran = models.CharField(max_length=255) # Contoh: Sekunder 3, Sekunder 6
     nomenklatur = models.CharField(max_length=100, null=True, blank=True)
     bangunan_hulu = models.CharField(max_length=100, null=True, blank=True)
@@ -825,13 +732,9 @@ class AsetSaluran(models.Model):
     kode_saluran = models.CharField(max_length=100) # Contoh: S02 / Saluran Sekunder
     
     foto = models.ImageField(upload_to='foto_aset/saluran/', null=True, blank=True)
-    
-    # Data Teknis
     jumlah_lining = models.IntegerField(default=0)
     panjang_saluran_m = models.FloatField(default=0, help_text="Panjang dalam meter")
     luas_layanan_ha = models.FloatField(default=0, help_text="Luas dalam hektar")
-    
-    # Fungsi & Kondisi
     fungsi_bangunan_sipil = models.CharField(max_length=255, null=True, blank=True)
     fungsi_jalan_inspeksi = models.CharField(max_length=255, null=True, blank=True)
     prioritas = models.FloatField(default=0)
@@ -849,16 +752,12 @@ class PelaporanAset(models.Model):
     daerah_irigasi = models.OneToOneField(DaerahIrigasi, on_delete=models.CASCADE, related_name='laporan_aksi')
     tahun = models.IntegerField(default=2024)
     luas_fungsional = models.FloatField(default=0)
-
-    # --- IKSI JARINGAN UTAMA ---
     utama_prasarana_fisik = models.FloatField(default=0, verbose_name="Prasarana Fisik (Utama)")
     utama_produktivitas_tanam = models.FloatField(default=0, verbose_name="Produktivitas Tanam (Utama)")
     utama_sarana_penunjang = models.FloatField(default=0, verbose_name="Sarana Penunjang (Utama)")
     utama_organisasi_personalia = models.FloatField(default=0, verbose_name="Organisasi Personalia (Utama)")
     utama_dokumentasi = models.FloatField(default=0, verbose_name="Dokumentasi (Utama)")
     utama_gp3a_ip3a = models.FloatField(default=0, verbose_name="GP3A / IP3A")
-
-    # --- IKSI JARINGAN TERSIER ---
     tersier_prasarana_fisik = models.FloatField(default=0, verbose_name="Prasarana Fisik (Tersier)")
     tersier_produktivitas_tanam = models.FloatField(default=0, verbose_name="Produktivitas Tanam (Tersier)")
     tersier_kondisi_op = models.FloatField(default=0, verbose_name="Kondisi OP")
@@ -867,13 +766,11 @@ class PelaporanAset(models.Model):
     tersier_p3a = models.FloatField(default=0, verbose_name="P3A")
 
     def total_utama(self):
-        # Logika perhitungan rata-rata atau bobot IKSI Utama
         fields = [self.utama_prasarana_fisik, self.utama_produktivitas_tanam, self.utama_sarana_penunjang, 
                   self.utama_organisasi_personalia, self.utama_dokumentasi, self.utama_gp3a_ip3a]
         return sum(fields) / len(fields)
 
     def total_tersier(self):
-        # Logika perhitungan rata-rata atau bobot IKSI Tersier
         fields = [self.tersier_prasarana_fisik, self.tersier_produktivitas_tanam, self.tersier_kondisi_op, 
                   self.tersier_petugas_pembagi_air, self.tersier_dokumentasi, self.tersier_p3a]
         return sum(fields) / len(fields)
@@ -886,8 +783,6 @@ class PelaporanAset(models.Model):
         di = self.daerah_irigasi
         skor_utama = self.total_utama()
         skor_tersier = self.total_tersier()
-
-        # Logika Pembobotan Berdasarkan Kelompok (Lihat PDF Hal 2)
         if di.kelompok_di == '1': # > 1000 ha
             return (skor_utama * 0.8) + (skor_tersier * 0.2)
         elif di.kelompok_di == '2': # 150 - 1000 ha
@@ -911,12 +806,9 @@ class PelaporanAset(models.Model):
         return f"IKSI {self.daerah_irigasi.nama_di} - {self.tahun}"
     
 class LaporanIksiSaluran(models.Model):
-    # RUMAH DATA RANGKUMAN (Data Utama)
     saluran = models.ForeignKey('Saluran', on_delete=models.CASCADE, related_name='laporan_iksi')
     tahun = models.IntegerField(default=2024)
     surveyor = models.CharField(max_length=100, blank=True)
-    
-    # Nilai Akumulasi (Rangkuman)
     total_nilai_iksi = models.FloatField(default=0, verbose_name="Total Nilai IKSI (%)")
     catatan_rekomendasi = models.TextField(blank=True)
     
@@ -930,18 +822,13 @@ class LaporanIksiSaluran(models.Model):
 
 
 class RuasIksiSaluran(models.Model):
-    # RUMAH DATA RUAS (Detail per Item)
     laporan_utama = models.ForeignKey(LaporanIksiSaluran, on_delete=models.CASCADE, related_name='ruas_detail')
     
     kode_item = models.CharField(max_length=20, help_text="Contoh: S02_01")
     nama_ruas_item = models.CharField(max_length=255, verbose_name="Uraian Ruas/Kuesioner")
-    
-    # Value (Sama antara Rangkuman & Ruas)
     nilai_kondisi = models.FloatField(default=0)    
     bobot_pengaruh = models.FloatField(default=0)
     nilai_akhir = models.FloatField(default=0)
-    
-    # Perbedaan Utama: Ada Foto di Ruas
     foto_kondisi = models.ImageField(upload_to='iksi/saluran/', blank=True, null=True)
     catatan_ruas = models.TextField(blank=True, null=True)
 
@@ -952,8 +839,6 @@ class RuasIksiSaluran(models.Model):
 class Paisaluran(models.Model):
 
     saluran = models.OneToOneField('Saluran', on_delete=models.CASCADE, related_name='pai_saluran')
-    
-    # Identitas (Sesuai list S01-S017)
     jenis_aset_kode = models.CharField(
         max_length=5, 
         choices=KODE_SALURAN_MASTER, 
@@ -961,33 +846,23 @@ class Paisaluran(models.Model):
     )
     nama_aset = models.CharField(max_length=100) # Contoh: PRIMER 1
     nomenklatur = models.CharField(max_length=100)
-    
-    # Batas Ruas
     bangunan_hulu = models.CharField(max_length=100)
     bangunan_hilir = models.CharField(max_length=100)
     subsistem = models.CharField(max_length=100, blank=True)
-    
-    # Data Teknis & Kapasitas
     luas_layanan_ha = models.FloatField(default=0)
     q_desain = models.FloatField(default=0, verbose_name="Q Desain (m3/det)")
     panjang_saluran_m = models.FloatField(default=0)
     tahun_dibangun = models.IntegerField(null=True, blank=True)
-    
-    # Data Pintu pada Saluran
     pintu_jumlah = models.IntegerField(default=0)
     pintu_lebar_m = models.FloatField(default=0)
     pintu_tinggi_m = models.FloatField(default=0)
     pintu_tenaga = models.CharField(max_length=50, choices=[('MANUAL', 'Manual'), ('LISTRIK', 'Listrik')], default='MANUAL')
     pintu_bahan = models.CharField(max_length=50, default='Besi')
-
-    # Dimensi Desain
     desain_li = models.FloatField(default=0, verbose_name="Desain Li (m)")
     desain_b = models.FloatField(default=0, verbose_name="Desain b (m)")
     desain_la = models.FloatField(default=0, verbose_name="Desain La (m)")
     desain_h = models.FloatField(default=0, verbose_name="Desain H (m)")
     desain_kemiringan = models.CharField(max_length=20, default="90 derajat")
-
-    # Dimensi Kenyataan (Existing)
     nyata_li = models.FloatField(default=0, verbose_name="Kenyataan Li (m)")
     nyata_b = models.FloatField(default=0, verbose_name="Kenyataan b (m)")
     nyata_la = models.FloatField(default=0, verbose_name="Kenyataan La (m)")
@@ -1006,8 +881,6 @@ class PaiBangunan(models.Model):
     jenis_aset_kode = models.CharField(max_length=10) # Contoh: B01, P01
     nama_bangunan = models.CharField(max_length=100)
     nomenklatur = models.CharField(max_length=100)
-    
-    # Spesifikasi teknis bangunan bisa disesuaikan nanti
     tahun_dibangun = models.IntegerField(null=True, blank=True)
     foto = models.ImageField(upload_to='pai/bangunan/', blank=True, null=True)
     catatan = models.TextField(blank=True)
@@ -1036,9 +909,7 @@ class DetailSegmenSaluran(models.Model):
     titik_akhir = models.CharField(max_length=255, blank=True, null=True)
     keterangan = models.TextField(blank=True, null=True)
     foto = models.TextField(blank=True, null=True) # JSON list path foto
-    # geom = gis_models.LineStringField(srid=4326, blank=True, null=True, verbose_name="Peta Segmen")
     geom = gis_models.GeometryField(srid=4326, blank=True, null=True, verbose_name="Peta Segmen")
-    # foto_admin = gis_models.ImageField(upload_to='segmen_saluran/', blank=True, null=True, verbose_name="Upload Foto (Web)")
     foto_admin = gis_models.ImageField(upload_to='segmen_saluran/', blank=True, null=True, verbose_name="Upload Foto Utama")
     foto_admin_2 = gis_models.ImageField(upload_to='segmen_saluran/', blank=True, null=True, verbose_name="Upload Foto Ke-2")
     foto_admin_3 = gis_models.ImageField(upload_to='segmen_saluran/', blank=True, null=True, verbose_name="Upload Foto Ke-3")
@@ -1054,19 +925,13 @@ class DetailSegmenSaluran(models.Model):
     
     def save(self, *args, **kwargs):
         from django.contrib.gis.geos import LineString
-        
-        # SKENARIO A: User MENGETIK Titik Awal & Akhir manual, tapi peta kosong
         if self.titik_awal and self.titik_akhir and not self.geom:
             try:
                 lat_awal, lon_awal = map(float, self.titik_awal.replace(' ', '').split(','))
                 lat_akhir, lon_akhir = map(float, self.titik_akhir.replace(' ', '').split(','))
-                # Buat garis tunggal di peta
                 self.geom = LineString((lon_awal, lat_awal), (lon_akhir, lat_akhir))
             except Exception as e:
                 print(f"Gagal mengonversi koordinat teks ke peta: {e}")
-
-        # SKENARIO B: User MENGGAMBAR di peta manual / import KMZ
-        # Kita ambil ujung koordinatnya untuk mengisi teks Titik Awal & Akhir secara otomatis
         if self.geom:
             try:
                 if self.geom.geom_type == 'LineString':
@@ -1080,18 +945,13 @@ class DetailSegmenSaluran(models.Model):
                     self.titik_akhir = f"{coords_akhir[-1][1]}, {coords_akhir[-1][0]}"
             except Exception as e:
                 print(f"Gagal mengekstrak koordinat peta ke teks: {e}")
-
-        # HITUNG PANJANG OTOMATIS (Jika masih 0)
         if self.geom and self.panjang == 0:
             try:
-                # Menghitung dengan akurasi meter (UTM)
                 self.panjang = round(self.geom.transform(32749, clone=True).length, 2)
             except Exception:
                 self.panjang = round(self.geom.length * 111320, 2)
 
         super().save(*args, **kwargs)
-        
-        # Update Rekap Saluran Induk
         if self.saluran:
             self.saluran.refresh_summary()
 
@@ -1121,7 +981,6 @@ class UnitPintuBangunan(models.Model):
         self.trigger_di_update() # Update D.I saat pintu dihapus
         
     def trigger_di_update(self):
-        # Lacak Daerah Irigasi miliknya dan suruh hitung ulang
         try:
             target_di = None
             bgn = self.detail_layanan.bangunan

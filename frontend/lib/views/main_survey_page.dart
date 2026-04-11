@@ -18,12 +18,8 @@ class MainSurveyPage extends StatefulWidget {
 
 class _MainSurveyPageState extends State<MainSurveyPage> {
   final MapController _mapController = MapController();
-
-  // State Data Master
   List<Map<String, dynamic>> _listDI = [];
   int? _selectedIdDI;
-
-  // State Peta (Preview Keseluruhan)
   List<Polyline> _savedPolylines = [];
   List<Marker> _savedMarkers = [];
 
@@ -32,8 +28,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
     super.initState();
     _refreshData();
   }
-
-  // Di dalam class _MainSurveyPageState
   bool _isDownloadingHulu = false;
 
   Future<void> _unduhDataHulu() async {
@@ -47,12 +41,9 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
     setState(() => _isDownloadingHulu = true);
 
     try {
-      // 1. Ambil data dari server via ApiService
       final List<dynamic> dataHulu = await ApiService().fetchMasterHulu(
         _selectedIdDI!,
       );
-
-      // 2. Simpan ke database lokal saluran
       final db = DatabaseService();
       for (var item in dataHulu) {
         await db.insertSaluran({
@@ -76,7 +67,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
   }
 
   Future<void> _startSurvey() async {
-    // 1. Tampilkan loading agar user tahu sedang ngecek GPS
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -84,15 +74,12 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
     );
 
     try {
-      // 2. Cek apakah layanan GPS nyala
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         Navigator.pop(context); // Tutup loading
         _showError("GPS Anda mati, silakan nyalakan dulu Pak.");
         return;
       }
-
-      // 3. Cek akurasi (Cari sinyal sampai akurasinya di bawah 20 meter)
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10), // Tunggu maksimal 10 detik
@@ -106,8 +93,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
         );
         return;
       }
-
-      // 4. Jika oke, baru pindah halaman
       final selectedData = _listDI.firstWhere((e) => e['id'] == _selectedIdDI);
       Navigator.push(
         context,
@@ -136,8 +121,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
     try {
       final api = ApiService();
       final db = DatabaseService();
-
-      // 1. Tarik Saluran
       final dataSaluran = await api.fetchSaluranMaster(_selectedIdDI!);
       for (var s in dataSaluran) {
         await db.insertSaluran({
@@ -146,8 +129,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
           'status_sync': 1, // Tandai data server
         });
       }
-
-      // 2. Tarik Bangunan (Bapak pakai DetailLayananBangunanSerializer)
       final dataBangunan = await api.fetchBangunanMaster(_selectedIdDI!);
       for (var b in dataBangunan) {
         await db.insertSurvey({
@@ -167,15 +148,11 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
       setState(() => _isSyncing = false);
     }
   }
-
-  // Fungsi untuk load data dari SQLite ke Peta
   Future<void> _refreshData() async {
     try {
       final db = DatabaseService();
       final diData = await db.getAllDIFull();
       final bangunanData = await db.getAllSurveys();
-
-      // Mapping Bangunan ke Marker Merah
       List<Marker> markers = bangunanData.map((b) {
         return Marker(
           point: LatLng(b['lat'] ?? 0, b['lng'] ?? 0),
@@ -184,8 +161,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
           child: const Icon(Icons.location_on, color: Colors.red, size: 25),
         );
       }).toList();
-
-      // Mapping Semua Jalur Saluran yang sudah tersimpan
       List<Polyline> polylines = [];
       for (var j in diData) {
         if (j['coordinates'] != null && j['coordinates'].isNotEmpty) {
@@ -213,8 +188,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
         _listDI = diData;
         _savedMarkers = markers;
         _savedPolylines = polylines;
-
-        // Reset pilihan jika ID sudah tidak ada di list baru
         if (_selectedIdDI != null &&
             !_listDI.any((e) => e['id'] == _selectedIdDI)) {
           _selectedIdDI = null;
@@ -293,19 +266,10 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
         title: const Text("Survey Saluran"),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshData),
-          // IconButton(
-          //   icon: const Icon(
-          //     Icons.add_location_alt_sharp,
-          //     color: Colors.blueAccent,
-          //     size: 28,
-          //   ),
-          //   onPressed: () => _showDiDialog(),
-          // ),
         ],
       ),
       body: Column(
         children: [
-          // 1. PREVIEW MAP
           Expanded(
             flex: 3,
             child: FlutterMap(
@@ -326,8 +290,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
               ],
             ),
           ),
-
-          // 2. PANEL PEMILIHAN
           Expanded(
             flex: 2,
             child: Container(
@@ -343,18 +305,13 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          // 1. Nilai yang sedang dipilih
                           value: _selectedIdDI,
-
-                          // 2. Daftar Item (WAJIB ADA)
                           items: _listDI.map((di) {
                             return DropdownMenuItem<int>(
                               value: di['id'],
                               child: Text(di['nama_di'] ?? "-"),
                             );
                           }).toList(),
-
-                          // 3. Aksi saat dipilih (WAJIB ADA)
                           onChanged: (val) {
                             setState(() {
                               _selectedIdDI = val;
@@ -372,45 +329,6 @@ class _MainSurveyPageState extends State<MainSurveyPage> {
                         ),
                       ),
                       const SizedBox(width: 10),
-
-                      // Logika tombol download
-                      // _isSyncing
-                      //     ? const SizedBox(
-                      //         width: 25,
-                      //         height: 25,
-                      //         child: CircularProgressIndicator(strokeWidth: 2),
-                      //       )
-                      //     : IconButton.filledTonal(
-                      //         onPressed:
-                      //             _downloadDataPendukung, // Fungsi yang kita buat sebelumnya
-                      //         icon: const Icon(
-                      //           Icons.cloud_download,
-                      //           color: Colors.green,
-                      //         ),
-                      //         tooltip: "Tarik Data Master",
-                      //       ),
-                      // const SizedBox(width: 8),
-                      // _isDownloadingHulu
-                      //     ? const CircularProgressIndicator()
-                      //     : IconButton.filledTonal(
-                      //         onPressed: _unduhDataHulu,
-                      //         icon: const Icon(
-                      //           Icons.download_for_offline,
-                      //           color: Colors.green,
-                      //         ),
-                      //         tooltip: "Tarik Data Saluran/Bangunan Server",
-                      //       ),
-                      // IconButton.filledTonal(
-                      //   onPressed: () {
-                      //     if (_selectedIdDI != null) {
-                      //       final data = _listDI.firstWhere(
-                      //         (e) => e['id'] == _selectedIdDI,
-                      //       );
-                      //       _showDiDialog(data: data);
-                      //     }
-                      //   },
-                      //   icon: const Icon(Icons.edit_note),
-                      // ),
                     ],
                   ),
                   const SizedBox(height: 20),

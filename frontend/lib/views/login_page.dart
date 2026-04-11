@@ -16,8 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passController = TextEditingController();
   final ApiService _apiService = ApiService();
   bool _loading = false;
-  
-  // Variabel untuk Limit Login
+  bool _isObscure = true;
   int _failedAttempts = 0;
   bool _isLocked = false;
   int _lockCountdown = 60;
@@ -69,7 +68,6 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (result['status'] == 200) {
-      // RESET ATTEMPTS KALAU SUKSES
       _failedAttempts = 0;
       
       final prefs = await SharedPreferences.getInstance();
@@ -84,13 +82,10 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (context) => const DashboardPage()),
       );
     } else {
-      // PENANGANAN GAGAL LOGIN
       _failedAttempts++;
       
       String errorMsgFromApi = result['body']?['error']?.toString().toLowerCase() ?? "";
       String customPesan = "Terjadi kesalahan saat masuk sistem.";
-
-      // Menyesuaikan pesan error elegan sesuai instruksi
       if (errorMsgFromApi.contains("password")) {
         customPesan = "Kredensial tidak cocok. Silakan periksa kembali kata sandi Anda.";
       } else if (errorMsgFromApi.contains("user") || errorMsgFromApi.contains("not found")) {
@@ -155,10 +150,6 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const SizedBox(height: 20), // Spacer Atas
-                  
-                  // ==============================
-                  // BAGIAN ATAS: LOGO & JUDUL
-                  // ==============================
                   Column(
                     children: [
                       Container(
@@ -204,10 +195,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ],
                   ),
-                  
-                  // ==============================
-                  // BAGIAN TENGAH: FORM LOGIN
-                  // ==============================
                   Column(
                     children: [
                       const SizedBox(height: 40),
@@ -232,11 +219,22 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 15),
                       TextField(
                         controller: _passController,
-                        obscureText: true,
+                        obscureText: _isObscure,
                         enabled: !_isLocked,
                         decoration: InputDecoration(
                           labelText: "Kata Sandi",
                           prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isObscure ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isObscure = !_isObscure; // Membalikkan keadaan mata terbuka/tertutup
+                              });
+                            },
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -249,8 +247,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-                      
-                      // Fitur Lupa Password
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -263,8 +259,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       
                       const SizedBox(height: 10),
-                      
-                      // Tombol Login / Loading / Peringatan Terkunci
                       _loading
                           ? const CircularProgressIndicator()
                           : _isLocked
@@ -305,26 +299,117 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                     ],
                   ),
-
-                  // ==============================
-                  // BAGIAN BAWAH: COPYRIGHT
-                  // ==============================
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          "© 2026 DPUTR Kabupaten Cirebon.",
-                          style: TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          "All Rights Reserved.\nDeveloped for SIRIGASI Project.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 10, color: Colors.blueGrey, height: 1.5),
-                        ),
-                      ],
+                  TextButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            title: const Text(
+                              "Kebijakan Privasi",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                            ),
+                            content: SizedBox(
+                              width: double.maxFinite,
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      "Terakhir diperbarui: 11 April 2026\n",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
+                                    ),
+                                    Text(
+                                      "Kebijakan privasi ini berlaku untuk aplikasi SIRIGASI untuk perangkat seluler yang dibuat oleh Admin Caruban sebagai layanan Gratis.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "1. Pengumpulan dan Penggunaan Informasi",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Aplikasi mengumpulkan lokasi perangkat Anda untuk membantu kami:\n"
+                                      "• Menyediakan layanan Geolokasi untuk pemetaan aset irigasi.\n"
+                                      "• Menganalisis dan meningkatkan fungsionalitas Aplikasi.\n\n"
+                                      "Kami mungkin meminta Anda untuk memberikan informasi pengenal pribadi tertentu, termasuk namun tidak terbatas pada Nama, Email, Lokasi, dan Foto.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "2. Akses Pihak Ketiga",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Hanya data yang diagregasi dan dianonimkan yang secara berkala dikirimkan ke layanan eksternal untuk membantu peningkatan Aplikasi. Kami dapat mengungkapkan informasi hanya jika diwajibkan oleh hukum atau untuk melindungi keamanan.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "3. Penyimpanan Data & Keamanan",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Kami akan menyimpan data selama Anda menggunakan Aplikasi. Kami menyediakan pengamanan fisik, elektronik, dan prosedural untuk melindungi kerahasiaan informasi Anda.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "4. Hak Menolak (Opt-Out)",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Anda dapat menghentikan semua pengumpulan informasi dengan mudah melalui penghapusan instalasi (uninstall) Aplikasi.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "5. Hubungi Kami",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Jika Anda memiliki pertanyaan mengenai privasi, silakan hubungi kami melalui email di devappscaruban@gmail.com.\n",
+                                      style: TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                    Text(
+                                      "Dengan menggunakan Aplikasi, Anda menyetujui pemrosesan informasi Anda sebagaimana diatur dalam Kebijakan Privasi ini.",
+                                      style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                                      textAlign: TextAlign.justify,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0D47A1),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text("Saya Mengerti", style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: const Text(
+                      '© 2026 DPUTR Kabupaten Cirebon\nKetuk untuk baca Kebijakan Privasi',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
-                  ),
+                  )
                 ],
               ),
             ),

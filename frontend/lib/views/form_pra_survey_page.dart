@@ -40,8 +40,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
     final db = DatabaseService();
     final dbClient = await db.database;
     final List<Map<String, dynamic>> rawData = await dbClient.query('daerah_irigasi');
-    
-    // --- LOGIKA PENGHAPUS DUPLIKAT ---
     final Map<int, Map<String, dynamic>> uniqueData = {};
     for (var item in rawData) {
       if (item['id'] != null) {
@@ -57,7 +55,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
 
   void _mulaiSurvey() {
     if (_formKey.currentState!.validate()) {
-      // Cari kembali Map utuh berdasarkan ID yang dipilih surveyor
       final selectedDIMap = _listDI.firstWhere((di) => di['id'] == _selectedDIId);
 
       Navigator.pushReplacement(
@@ -100,8 +97,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),
-
-              // 1. Pilih Nama D.I. dari Database
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(
                   labelText: "Pilih Daerah Irigasi (D.I.)",
@@ -109,7 +104,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                   prefixIcon: Icon(Icons.water_drop_outlined),
                 ),
                 value: _selectedDIId,
-                // Pastikan tipe item adalah <int> dan value-nya mengambil 'id'
                 items: _listDI.map((di) => DropdownMenuItem<int>(
                   value: di['id'] as int, 
                   child: Text(di['nama_di'] ?? "Tanpa Nama", overflow: TextOverflow.ellipsis),
@@ -118,8 +112,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                 validator: (val) => val == null ? "D.I. wajib dipilih" : null,
               ),
               const SizedBox(height: 20),
-
-              // 2. Isikan Nama Saluran
               TextFormField(
                 controller: _namaSaluranCtrl,
                 decoration: const InputDecoration(
@@ -130,8 +122,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                 validator: (val) => val == null || val.isEmpty ? "Nama saluran wajib diisi" : null,
               ),
               const SizedBox(height: 20),
-
-              // 3. Tingkat Jaringan
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: "Tingkat Jaringan",
@@ -144,8 +134,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                 validator: (val) => val == null ? "Pilih tingkat jaringan" : null,
               ),
               const SizedBox(height: 20),
-
-              // 4. Jenis Saluran (Kode Aset)
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: "Jenis Saluran (Kode Aset)",
@@ -161,8 +149,6 @@ class _FormPraSurveyPageState extends State<FormPraSurveyPage> {
                 validator: (val) => val == null ? "Pilih jenis saluran" : null,
               ),
               const SizedBox(height: 20),
-
-              // 5. Kewenangan
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: "Kewenangan",

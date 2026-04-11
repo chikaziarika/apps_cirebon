@@ -11,10 +11,6 @@ void main() {
     const MaterialApp(debugShowCheckedModeBanner: false, home: SurveyPage()),
   );
 }
-
-// ==========================================
-// SERVICE: LOGIKA DATABASE & API
-// ==========================================
 class SurveyService {
   static const String baseUrl =
       "https://unretentive-nichole-unweaponed.ngrok-free.dev";
@@ -52,8 +48,6 @@ class SurveyService {
       request.fields['catatan'] = data['catatan'] ?? "";
       request.fields['lat'] = data['lat'].toString();
       request.fields['lng'] = data['lng'].toString();
-
-      // Ambil foto pertama untuk dikirim (sesuai model Django saat ini)
       List<String> paths = data['fotoPaths'].split(',');
       if (paths.isNotEmpty && await File(paths[0]).exists()) {
         request.files.add(await http.MultipartFile.fromPath('foto', paths[0]));
@@ -87,10 +81,6 @@ class SurveyService {
     onComplete();
   }
 }
-
-// ==========================================
-// UI: HALAMAN UTAMA
-// ==========================================
 class SurveyPage extends StatefulWidget {
   const SurveyPage({super.key});
   @override
@@ -149,8 +139,6 @@ class _SurveyPageState extends State<SurveyPage> {
     );
     if (picked != null) setState(() => _images.add(File(picked.path)));
   }
-
-  // --- FUNGSI POP-UP DETAIL ---
   void _showDetailDialog(Map<String, dynamic> item) {
     showDialog(
       context: context,

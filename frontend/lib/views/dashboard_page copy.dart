@@ -13,8 +13,6 @@ import '../views/widgets/app_drawer.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
-
-  // 1. FUNGSI LOGOUT
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -31,8 +29,6 @@ class DashboardPage extends StatelessWidget {
       (route) => false,
     );
   }
-
-  // 2. FUNGSI SYNC MASSAL (TAMBAHAN BARU)
   Future<void> _runMassSync(BuildContext context) async {
     final api = ApiService();
     final db = DatabaseService();
@@ -46,18 +42,14 @@ class DashboardPage extends StatelessWidget {
     int successCount = 0;
 
     try {
-      // 1. Sync Data Bangunan (Titik Survey)
       final unsyncedSurveys = await db.getUnsyncedSurveys();
       for (var item in unsyncedSurveys) {
-        // Kirim data ke Django
         bool ok = await api.syncBangunan(item);
         if (ok) {
           await db.updateSyncStatus('surveys', item['id']);
           successCount++;
         }
       }
-
-      // 2. Sync Data Saluran (Jalur Saluran)
       final dbClient = await db.database;
       final List<Map<String, dynamic>> unsyncedSaluran = await dbClient.query(
         'saluran',
@@ -99,7 +91,6 @@ class DashboardPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // HEADER SECTION
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(
@@ -170,9 +161,6 @@ class DashboardPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 30),
-
-            // MENU GRID
-            // MENU GRID
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: GridView.count(
@@ -189,27 +177,6 @@ class DashboardPage extends StatelessWidget {
                     Colors.blue,
                     const MainSurveyPage(), // Mengarah ke Peta/Survey
                   ),
-                  // _menuTile(
-                  //   context,
-                  //   "Data Bangunan",
-                  //   Icons.apartment,
-                  //   Colors.orange,
-                  //   const FormBangunanPage(),
-                  // ),
-                  // _menuTile(
-                  //   context,
-                  //   "Data Saluran",
-                  //   Icons.water,
-                  //   Colors.blue,
-                  //   const FormSaluranPage(),
-                  // ),
-                  // _menuTile(
-                  //   context,
-                  //   "Peta GIS",
-                  //   Icons.public, // Mengganti ikon agar berbeda dengan Survey
-                  //   Colors.green,
-                  //   null, // Fitur belum ada
-                  // ),
                   _menuTile(
                     context,
                     "Riwayat Sync",
@@ -251,8 +218,6 @@ class DashboardPage extends StatelessWidget {
       ],
     );
   }
-
-  // WIDGET MENU TILE YANG SUDAH DIMODIFIKASI
   Widget _menuTile(
     BuildContext context,
     String title,
@@ -263,13 +228,11 @@ class DashboardPage extends StatelessWidget {
     return InkWell(
       onTap: () {
         if (page != null) {
-          // Navigasi sesuai dengan halaman yang dimasukkan di parameter 'page'
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => page),
           );
         } else {
-          // Jika parameter page null, baru tampilkan "Segera datang"
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Fitur segera datang!"),

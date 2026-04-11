@@ -161,8 +161,6 @@ class _SyncPageState extends State<SyncPage> {
     try {
       for (var group in _pendingData) {
         final listBangunan = group['bangunans'] as List<Map<String, dynamic>>;
-
-        // SINKRON SALURAN
         if (group['type'] == 'saluran') {
           final dataSaluran = Map<String, dynamic>.from(group['data']);
           int idSaluran = int.tryParse(dataSaluran['id']?.toString() ?? "0") ?? 0;
@@ -178,8 +176,6 @@ class _SyncPageState extends State<SyncPage> {
             }
           }
         }
-
-        // SINKRON BANGUNAN
         for (var b in listBangunan) {
           int idBangunan = int.tryParse(b['id']?.toString() ?? "0") ?? 0;
           if (_selectedBangunanIds.contains(idBangunan)) {
@@ -216,10 +212,7 @@ class _SyncPageState extends State<SyncPage> {
     try {
       if (saluran['path_kondisi'] != null && saluran['path_kondisi'].toString().length > 10) {
         String rawJson = saluran['path_kondisi'].toString();
-        
-        // ---- TAMBAHKAN BARIS PRINT INI ----
         debugPrint("🔍 ISI JSON ASLI DARI SQLITE: $rawJson");
-        // -----------------------------------
 
         if (rawJson.startsWith('"') && rawJson.endsWith('"')) {
           rawJson = jsonDecode(rawJson);
@@ -237,13 +230,10 @@ class _SyncPageState extends State<SyncPage> {
           else if (k.contains('BAP')) pBAP += p;
         }
       }
-
-      // 2. Ekstrak Foto Saluran (Cari langsung dari field foto_baik, foto_rr, dll)
       List<String> keys = ['foto_baik', 'foto_rr', 'foto_rb', 'foto_bap'];
       for (String key in keys) {
         if (saluran[key] != null && saluran[key].toString().length > 10) {
           try {
-            // PERBAIKAN: Menangani struktur list foto yang mungkin rusak
             String rawVal = saluran[key].toString();
             if (rawVal.startsWith('"') && rawVal.endsWith('"')) {
                rawVal = jsonDecode(rawVal);
@@ -253,7 +243,6 @@ class _SyncPageState extends State<SyncPage> {
               if (f.toString().isNotEmpty) fotoSaluran.add(f.toString());
             }
           } catch (e) {
-            // Jika gagal decode, bersihkan manual lalu tambahkan
             String path = saluran[key].toString().replaceAll(RegExp(r'["\[\]]'), '').trim();
             if (path.isNotEmpty) fotoSaluran.add(path);
           }
@@ -265,19 +254,13 @@ class _SyncPageState extends State<SyncPage> {
     
     return { 'baik': pBaik, 'rr': pRR, 'rb': pRB, 'bap': pBAP, 'fotos': fotoSaluran };
   }
-
-  // --- LOGIKA PARSING RANGKUMAN BANGUNAN ---
   List<String> _getFotoBangunan(Map<String, dynamic> b) {
     List<String> fotos = [];
-    
-    // Tarik Foto Bangunan Utama
     for (int i = 1; i <= 5; i++) {
       if (b['foto$i'] != null && b['foto$i'].toString().isNotEmpty) {
         fotos.add(b['foto$i'].toString());
       }
     }
-    
-    // Tarik Foto Pintu
     for (int i = 1; i <= 3; i++) {
       if (b['foto_pintu$i'] != null && b['foto_pintu$i'].toString().isNotEmpty) {
         String pathPintu = b['foto_pintu$i'].toString().replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
@@ -343,8 +326,6 @@ class _SyncPageState extends State<SyncPage> {
                             final listBangunan = group['bangunans'] as List<Map<String, dynamic>>;
                             int idSaluran = int.tryParse(saluran['id']?.toString() ?? "0") ?? 0;
                             final bool isSaluranSelected = _selectedSaluranIds.contains(idSaluran);
-
-                            // HITUNG RANGKUMAN
                             var rangkuman = _getRangkumanSaluran(saluran);
                             List<String> fotoSaluran = rangkuman['fotos'];
 
@@ -385,7 +366,6 @@ class _SyncPageState extends State<SyncPage> {
                                   subtitle: Text("Paket Survey: ${saluran['nama_di'] ?? '-'}\nPetugas: ${saluran['surveyor'] ?? 'Admin'}", style: const TextStyle(fontSize: 11)),
                                   
                                   children: [
-                                    // --- RANGKUMAN SALURAN (MUNCUL JIKA DI-EXPAND) ---
                                     Container(
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(15),
@@ -413,8 +393,6 @@ class _SyncPageState extends State<SyncPage> {
                                         ],
                                       ),
                                     ),
-
-                                    // --- LIST BANGUNAN (ANAK) ---
                                     Container(
                                       color: Colors.grey.shade50,
                                       padding: const EdgeInsets.only(top: 5, bottom: 10),
@@ -452,8 +430,6 @@ class _SyncPageState extends State<SyncPage> {
       ),
     );
   }
-
-  // WIDGET KOTAK STATISTIK PANJANG SALURAN
   Widget _buildStatBadge(String label, double value, Color color) {
     return Column(
       children: [
@@ -471,8 +447,6 @@ class _SyncPageState extends State<SyncPage> {
       ],
     );
   }
-
-  // WIDGET HORIZONTAL SCROLL UNTUK PREVIEW FOTO
   Widget _buildPhotoRow(List<String> fotoPaths) {
     return SizedBox(
       height: 50,
@@ -531,7 +505,6 @@ class _SyncPageState extends State<SyncPage> {
               subtitle: Text("Aset: ${b['kode_aset']} | Pintu (B/RR/RB): ${b['pintu_baik']}/${b['pintu_rr']}/${b['pintu_rb']}", style: const TextStyle(fontSize: 10)),
               trailing: IconButton(icon: const Icon(Icons.edit_document, color: Colors.green, size: 20), onPressed: () => _editBangunan(b)),
             ),
-            // MUNCULKAN PREVIEW FOTO BANGUNAN & PINTU JIKA ADA
             if (fotoBangunan.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(left: 45, bottom: 10),

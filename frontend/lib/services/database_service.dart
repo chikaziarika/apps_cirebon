@@ -184,8 +184,6 @@ class DatabaseService {
             print("✅ Database di-upgrade ke versi 9");
           } catch (e) { print("ℹ️ Kolom BAP mungkin sudah ada: $e"); }
         }
-        
-        // --- UPGRADE KE VERSI 10: INJEKSI KOLOM BARU TANPA HAPUS APLIKASI ---
         if (oldVersion < 10) {
           var newColumns = [
             'foto_pintu1 TEXT', 'foto_pintu2 TEXT', 'foto_pintu3 TEXT',
@@ -219,26 +217,18 @@ class DatabaseService {
             await db.execute("ALTER TABLE surveys ADD COLUMN lebar_pintu REAL DEFAULT 0");
             await db.execute("ALTER TABLE surveys ADD COLUMN tinggi_pintu REAL DEFAULT 0");
             await db.execute("ALTER TABLE surveys ADD COLUMN jenis_pintu TEXT");
-            
-            // Kolom Cabang Kiri
             await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_kiri TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_kiri TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_kiri TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN luas_kiri REAL DEFAULT 0");
-            
-            // Kolom Cabang Tengah
             await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_tengah TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_tengah TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_tengah TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN luas_tengah REAL DEFAULT 0");
-            
-            // Kolom Cabang Kanan
             await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_kanan TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_kanan TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_kanan TEXT");
             await db.execute("ALTER TABLE surveys ADD COLUMN luas_kanan REAL DEFAULT 0");
-            
-            // Lainnya
             await db.execute("ALTER TABLE surveys ADD COLUMN jumlah_cabang_sekunder INTEGER DEFAULT 0");
             await db.execute("ALTER TABLE surveys ADD COLUMN jumlah_cabang_tersier INTEGER DEFAULT 0");
             await db.execute("ALTER TABLE surveys ADD COLUMN is_saluran_berlanjut INTEGER DEFAULT 1");

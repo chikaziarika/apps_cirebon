@@ -27,7 +27,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
   @override
   void initState() {
     super.initState();
-    // Default untuk segmen selanjutnya disamakan dengan segmen saat ini
     _kondisiBaru = widget.kondisiSaatIni;
   }
 
@@ -50,18 +49,13 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
   }
 
   void _simpanSegmen() {
-    // Validasi Foto Minimal 1
     if (!_fotos.any((f) => f != null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Wajib lampirkan minimal 1 foto segmen!", style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
       );
       return;
     }
-
-    // Ekstrak file yang tidak null
     List<String> fotoPaths = _fotos.where((f) => f != null).map((f) => f!.path).toList();
-
-    // Kirim data kembali ke halaman peta
     Navigator.pop(context, {
       'keterangan': _ketCtrl.text,
       'lebar': double.tryParse(_lebarCtrl.text) ?? 0.0,
@@ -85,7 +79,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // INFORMASI SEGMEN YANG BARUSAN DILEWATI
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -105,8 +98,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
               ),
             ),
             const SizedBox(height: 25),
-
-            // KONDISI UNTUK SEGMEN SELANJUTNYA
             const Text("Kondisi Segmen:", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
@@ -121,8 +112,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
               onChanged: (v) => setState(() => _kondisiBaru = v!),
             ),
             const SizedBox(height: 30),
-
-            // INPUT DIMENSI
             const Text("Dimensi Segmen (Meter):", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Row(
@@ -145,8 +134,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
               ],
             ),
             const SizedBox(height: 20),
-
-            // INPUT KETERANGAN & FOTO
             TextField(
               controller: _ketCtrl,
               maxLines: 3,
@@ -178,10 +165,6 @@ class _FormKondisiSegmenPageState extends State<FormKondisiSegmenPage> {
               ),
             ),
             const Divider(height: 40, thickness: 1),
-
-            
-
-            // TOMBOL SIMPAN
             SizedBox(
               width: double.infinity,
               height: 50,

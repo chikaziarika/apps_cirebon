@@ -13,10 +13,6 @@ void main() {
     const MaterialApp(debugShowCheckedModeBanner: false, home: SplashScreen()),
   );
 }
-
-// ==========================================
-// UI: SPLASH SCREEN (Dengan Cek Login)
-// ==========================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -37,8 +33,6 @@ class _SplashScreenState extends State<SplashScreen> {
     final String? token = prefs.getString('access_token');
 
     if (!mounted) return;
-
-    // Jika token ada, masuk Dashboard. Jika tidak, ke Login.
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -67,7 +61,6 @@ class _SplashScreenState extends State<SplashScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                // TOMBOL LOGOUT
                 IconButton(
                   onPressed: () async {
                     final prefs = await SharedPreferences.getInstance();
@@ -96,10 +89,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
-// ==========================================
-// UI: HALAMAN LOGIN (Koneksi ke JWT Django)
-// ==========================================
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -215,13 +204,10 @@ void _showLogoutDialog(BuildContext context) {
         ),
         TextButton(
           onPressed: () async {
-            // 1. Hapus token dari SharedPreferences
             final prefs = await SharedPreferences.getInstance();
             await prefs.clear(); // Menghapus access_token dkk
 
             if (!context.mounted) return;
-
-            // 2. Tendang balik ke halaman Login
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -234,13 +220,7 @@ void _showLogoutDialog(BuildContext context) {
     ),
   );
 }
-
-// ==========================================
-// SERVICE: LOGIKA DATABASE & API
-// ==========================================
 class SurveyService {
-  // PENTING: Gunakan IP Laptop Bapak agar HP bisa akses (0.0.0.0 di Django)
-  // static const String baseUrl = "http://192.168.1.15:8000";
   static const String baseUrl = "http://10.0.2.2:8000";
   static Database? _database;
 
@@ -266,10 +246,6 @@ class SurveyService {
     );
   }
 }
-
-// ==========================================
-// UI: HALAMAN DASHBOARD UTAMA
-// ==========================================
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
@@ -280,7 +256,6 @@ class DashboardPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Biru
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(
@@ -298,7 +273,6 @@ class DashboardPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // BARIS JUDUL DAN TOMBOL LOGOUT
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -310,7 +284,6 @@ class DashboardPage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      // TOMBOL LOGOUT DI SINI
                       IconButton(
                         icon: const Icon(
                           Icons.power_settings_new,
@@ -338,8 +311,6 @@ class DashboardPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 25),
-
-            // MODUL: SEBARAN D.I (HORIZONTAL LIST & MAP)
             _buildDIMapSection(context),
 
             const SizedBox(height: 25),
@@ -565,10 +536,6 @@ class DashboardPage extends StatelessWidget {
     );
   }
 }
-
-// ==========================================
-// UI: MODUL 1 - INVENTARISASI BANGUNAN
-// ==========================================
 class FormBangunanPage extends StatefulWidget {
   const FormBangunanPage({super.key});
   @override
@@ -841,10 +808,6 @@ class _FormBangunanPageState extends State<FormBangunanPage> {
     );
   }
 }
-
-// ==========================================
-// UI: MODUL 2 - INVENTARISASI SALURAN
-// ==========================================
 class FormSaluranPage extends StatefulWidget {
   const FormSaluranPage({super.key});
   @override

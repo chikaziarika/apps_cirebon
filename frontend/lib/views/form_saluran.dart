@@ -35,7 +35,6 @@ class _FormSaluranPageState extends State<FormSaluranPage> {
       _jenisKonstruksi = widget.editData!['jenis_konstruksi'] ?? 'Tanah';
       _lat = widget.editData!['lat'];
       _lng = widget.editData!['lng'];
-      // Jika ada data DI lama, set ke dropdown
       _selectedDI = widget.editData!['nama_di'];
     }
   }
@@ -176,14 +175,12 @@ class _FormSaluranPageState extends State<FormSaluranPage> {
         elevation: 0,
       ),
       body: Stack(
-        // Gunakan Stack untuk overlay loading
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // BAGIAN PILIH DI
                 const Text(
                   "Daerah Irigasi",
                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -344,8 +341,6 @@ class _FormSaluranPageState extends State<FormSaluranPage> {
               ],
             ),
           ),
-
-          // LOADING SPINNER OVERLAY
           if (_isSyncingDI)
             Container(
               color: Colors.black.withOpacity(0.5),

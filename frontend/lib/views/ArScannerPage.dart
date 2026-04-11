@@ -81,40 +81,22 @@ class _ArScannerPageState extends State<ArScannerPage> {
   ) {
     this.arSessionManager = arSessionManager;
     this.arObjectManager = arObjectManager;
-
-    // 1. Inisialisasi tanpa properti yang merah
     this.arSessionManager!.onInitialize(
       showFeaturePoints: true,
       showPlanes: true,
       showWorldOrigin: false,
-      // Jika handlePlaneTap merah, hapus saja baris itu Pak.
-      // Biasanya di versi terbaru sudah include di handleTaps atau otomatis.
     );
 
     this.arObjectManager!.onInitialize();
-
-    // 2. Gunakan salah satu dari dua nama ini (cek mana yang tidak merah):
-    // Coba ketik 'this.arSessionManager!.' lalu lihat saran yang muncul
-
-    // Opsi A (Paling sering di versi terbaru):
     this.arSessionManager!.onPlaneOrPointTap = _handleMeasurement;
-
-    // Opsi B (Jika A merah):
-    // this.arSessionManager!.onTapPlane = _handleMeasurement;
   }
-
-  // 3. Fungsi Logika Ukur
   Future<void> _handleMeasurement(ARHitTestResult hit) async {
     if (hitTestResults.isEmpty) return;
 
     final hit = hitTestResults.first;
-
-    // Logika ambil posisi 3D
     final vector.Vector3 position = vector.Vector3.fromFloat64List(
       hit.worldTransform.getColumn(3).storage,
     );
-
-    // Jika sudah ada 2 titik, reset untuk pengukuran baru
     if (nodes.length >= 2) {
       for (var node in nodes) {
         arObjectManager?.removeNode(node);
@@ -122,13 +104,9 @@ class _ArScannerPageState extends State<ArScannerPage> {
       nodes.clear();
       setState(() {});
     }
-
-    // Ambil posisi 3D
     final vector.Vector3 position = vector.Vector3.fromFloat64List(
       hit.worldTransform.getColumn(3).storage,
     );
-
-    // Buat penanda (node) agar surveyor tahu titik mana yang diklik
     final newNode = ARNode(
       type: NodeType.localGLTF2,
       uri: "", // Kosongkan saja karena tidak ada aset
@@ -149,7 +127,6 @@ class _ArScannerPageState extends State<ArScannerPage> {
           ),
         );
       } else if (nodes.length == 2) {
-        // HITUNG JARAK MATEMATIKA 3D
         final distance = nodes[0].position.distanceTo(nodes[1].position);
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,8 +137,6 @@ class _ArScannerPageState extends State<ArScannerPage> {
             backgroundColor: Colors.green,
           ),
         );
-
-        // Tunggu 1 detik biar surveyor lihat hasilnya, lalu balik ke form
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) Navigator.pop(context, distance);
         });

@@ -135,7 +135,6 @@ class _FormDiPageState extends State<FormDiPage> {
       ),
       body: Column(
         children: [
-          // 1. AREA PETA
           SizedBox(
             height: 250,
             child: Stack(
@@ -152,7 +151,6 @@ class _FormDiPageState extends State<FormDiPage> {
                           'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
                       subdomains: const ['a', 'b', 'c', 'd'],
                       userAgentPackageName: 'com.dsdaputr.apps_cirebon',
-                      // Pastikan const FMTCStore('mapStore') sesuai dengan yang di main.dart
                       tileProvider: const FMTCStore(
                         'mapStore',
                       ).getTileProvider(),
@@ -168,7 +166,6 @@ class _FormDiPageState extends State<FormDiPage> {
                     ),
                   ],
                 ),
-                // Overlay Lat/Long di Peta
                 Positioned(
                   bottom: 10,
                   left: 10,
@@ -189,8 +186,6 @@ class _FormDiPageState extends State<FormDiPage> {
               ],
             ),
           ),
-
-          // 2. INPUT DATA & LIST
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -229,8 +224,6 @@ class _FormDiPageState extends State<FormDiPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // BOX KOORDINAT
                   const Text(
                     "Riwayat Titik Koordinat:",
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -296,8 +289,6 @@ class _FormDiPageState extends State<FormDiPage> {
               ),
             ),
           ),
-
-          // 3. TOMBOL
           Container(
             padding: const EdgeInsets.all(16),
             child: Column(

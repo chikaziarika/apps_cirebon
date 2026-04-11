@@ -51,7 +51,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo Kabupaten Cirebon
             Image.asset(
               "assets/images/logo_sirigasi.png", // Pakai logo lokal yang sudah ada
               height: 150,

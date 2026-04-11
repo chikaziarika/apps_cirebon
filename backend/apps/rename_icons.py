@@ -1,12 +1,8 @@
 import os
 
 def bulk_rename_epaksi():
-    # 1. Tentukan path folder (relatif terhadap posisi skrip ini)
-    # Kita naik satu tingkat dari 'apps' lalu masuk ke 'static/icons'
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     target_folder = os.path.join(base_dir, 'static', 'icons')
-
-    # 2. Daftar mapping (Sesuaikan dengan hasil potongan katalog bapak)
     mapping = {
         'icon_0.png': 'B01.png', # Bendung
         'icon_1.png': 'B02.png', # Bendung Gerak
@@ -29,7 +25,6 @@ def bulk_rename_epaksi():
         new_file = os.path.join(target_folder, new_name)
 
         if os.path.exists(old_file):
-            # Hapus file tujuan jika sudah ada (overwrite)
             if os.path.exists(new_file):
                 os.remove(new_file)
             

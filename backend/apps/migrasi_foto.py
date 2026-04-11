@@ -26,12 +26,6 @@ def migrate_to_segments():
     count = 0
 
     for s in salurans:
-        # Cek apakah sudah ada segmen (biar tidak double)
-        # if s.segments.exists():
-        #     print(f"Skipping {s.nama_saluran}, sudah ada data segmen.")
-        #     continue
-
-        # List data lama untuk dipindah
         kondisi_list = [
             ('BAIK', s.panjang_baik, s.foto_baik, s.keterangan_baik),
             ('RR', s.panjang_rr, s.foto_rr, s.keterangan_rr),
@@ -41,7 +35,6 @@ def migrate_to_segments():
 
         found_data = False
         for kondisi, panjang, foto, ket in kondisi_list:
-            # Pindahkan jika ada panjang > 0 atau ada path foto
             if (panjang and panjang > 0) or (foto and foto != "[]" and foto != "null" and foto):
                 DetailSegmenSaluran.objects.create(
                     saluran=s,
@@ -55,7 +48,6 @@ def migrate_to_segments():
         if found_data:
             print(f"Berhasil memindahkan data: {s.nama_saluran}")
             count += 1
-            # Hitung ulang summary agar sinkron
             s.refresh_summary()
 
     print(f"\nSelesai! {count} Saluran berhasil dimigrasi.")

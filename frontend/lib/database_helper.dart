@@ -26,20 +26,14 @@ class DatabaseHelper {
       },
     );
   }
-
-  // Simpan data ke HP
   Future<int> insertSurvey(Map<String, dynamic> row) async {
     Database db = await database;
     return await db.insert('surveys', row);
   }
-
-  // Ambil semua data yang belum terkirim
   Future<List<Map<String, dynamic>>> getOfflineSurveys() async {
     Database db = await database;
     return await db.query('surveys');
   }
-
-  // Hapus data setelah berhasil terkirim ke PostgreSQL
   Future<int> deleteSurvey(int id) async {
     Database db = await database;
     return await db.delete('surveys', where: 'id = ?', whereArgs: [id]);

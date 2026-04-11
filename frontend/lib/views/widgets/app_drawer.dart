@@ -19,8 +19,6 @@ class _AppDrawerState extends State<AppDrawer> {
     super.initState();
     _loadUserInfo();
   }
-
-  // Mengambil data user yang disimpan saat login
   void _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -34,7 +32,6 @@ class _AppDrawerState extends State<AppDrawer> {
     return Drawer(
       child: Column(
         children: [
-          // HEADER: Tempat Nama & Profil
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: Colors.blueAccent),
             accountName: Text(
@@ -49,31 +46,11 @@ class _AppDrawerState extends State<AppDrawer> {
               child: Icon(Icons.person, size: 40, color: Colors.blueAccent),
             ),
           ),
-
-          // MENU LIST
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text("Dashboard Utama"),
             onTap: () => Navigator.pop(context),
           ),
-          // ListTile(
-          //   leading: const Icon(Icons.map),
-          //   title: const Text("Peta Irigasi"),
-          //   onTap: () {
-          //     /* Navigasi ke Peta */
-          //   },
-          // ),
-          // ListTile(
-          //   leading: const Icon(Icons.list_alt),
-          //   title: const Text("Master Daerah Irigasi"),
-          //   onTap: () {
-          //     Navigator.pop(context); // Tutup drawer
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(builder: (context) => const MasterDiPage()),
-          //     );
-          //   },
-          // ),
 
           const Spacer(), 
           const Divider(),
@@ -86,13 +63,10 @@ class _AppDrawerState extends State<AppDrawer> {
               style: TextStyle(color: Colors.red),
             ),
             onTap: () async {
-              // 1. Bersihkan Memori
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
 
               if (!context.mounted) return;
-
-              // 2. Lempar ke Login (Route '/' atau LoginPage)
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginPage()),

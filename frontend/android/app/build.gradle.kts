@@ -14,7 +14,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.frontend"
+    namespace = "id.dputrkabcirebon.sirigasi"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.frontend"
+        applicationId = "id.dputrkabcirebon.sirigasi"
         minSdk = 24
         targetSdk = 34
         
@@ -38,7 +38,6 @@ android {
 
     signingConfigs {
         create("release") {
-            // Kita ambil nilainya satu per satu
             val alias = keystoreProperties.getProperty("keyAlias")
             val pass = keystoreProperties.getProperty("storePassword")
             val keyPass = keystoreProperties.getProperty("keyPassword")
@@ -52,7 +51,7 @@ android {
                 // Paksa arahkan ke folder app
                 storeFile = file(project.projectDir.resolve(fileJks))
                 
-                println("✅ JKS Ditemukan di: ${storeFile?.absolutePath}")
+                println("✅ JKS Ditemukan dan Siap Dipakai!")
             } else {
                 println("❌ Data di key.properties tidak lengkap!")
             }

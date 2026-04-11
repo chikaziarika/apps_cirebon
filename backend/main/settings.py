@@ -15,35 +15,14 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 load_dotenv()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# 1. Definisikan Root OSGeo4W
 OSGEO4W_ROOT = r'C:\OSGeo4W' 
-# (Atau sesuaikan dengan jalur OSGeo4W Bapak)
-
-# 2. Set Path Environment
 os.environ['PATH'] = os.path.join(OSGEO4W_ROOT, 'bin') + ';' + os.environ['PATH']
 os.environ['PROJ_LIB'] = os.path.join(OSGEO4W_ROOT, 'share', 'proj')
-
-# 3. Point ke DLL (Pastikan versi gdal sesuai folder bin Bapak)
 GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal309.dll') 
 GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'geos_c.dll')
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-ddsqtk79hkb&&yce@+4$59zn*@zm5!s3a3s03h-7t5wa%eswx#'
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-
-
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -58,16 +37,12 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    
-    # GIS & API Requirements
     'django.contrib.gis', 
     'rest_framework',
     'rest_framework_gis',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'corsheaders',
-    
-    # Local Apps
     'leaflet',
     'apps',
     'channels',
@@ -121,20 +96,7 @@ TEMPLATES = [
     },
 ]
 
-# print(f"DEBUG: Mencari template di: {BASE_DIR / 'apps' / 'templates'/ 'apps'}")
-
 WSGI_APPLICATION = 'main.wsgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 
 DATABASES = {
     'default': {
@@ -146,8 +108,6 @@ DATABASES = {
         'PORT': '5432',
     }
 }
-
-# REST Framework Configuration (Untuk integrasi Mobile App)
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -158,10 +118,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
 }
-
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -178,10 +134,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
@@ -189,10 +141,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder', # Ini kuncinya!
     'django.contrib.staticfiles.finders.FileSystemFinder',
@@ -206,12 +154,7 @@ from pathlib import Path
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-
-# Ganti atau tambahkan di bawah WSGI_APPLICATION
 ASGI_APPLICATION = 'main.asgi.application'
-
-# Tambahkan Channel Layer (memerlukan Redis) untuk fitur real-time
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -222,14 +165,8 @@ CHANNEL_LAYERS = {
 }
 
 import os
-
-# Update this path to match where OSGeo4W installed GDAL
-# OSGEO4W_ROOT = r'C:\OSGeo4W'
 OSGEO4W_ROOT = r'C:\Users\Axioo\AppData\Local\Programs\OSGeo4W'
 os.environ['PATH'] = os.path.join(OSGEO4W_ROOT, 'bin') + ';' + os.environ['PATH']
-
-# Point Django directly to the GDAL and GEOS DLLs
-# GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal309.dll') # Change 'gdal309' to your version
 GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'gdal12.dll') # Change 'gdal309' to your version
 GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_ROOT, 'bin', 'geos_c.dll')
 
@@ -249,9 +186,7 @@ ALLOWED_HOSTS = [
     '*',
     '192.168.18.30',
 ]
-# Only run this configuration if we are on Windows
 if os.name == 'nt':
-    # List possible installation paths
     possible_roots = [
         r'C:\Users\Axioo\AppData\Local\Programs\OSGeo4W', # Your path
         r'C:\OSGeo4W',                                     # Default path
@@ -301,8 +236,6 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
 }
 
-# settings.py
-
 CSRF_TRUSTED_ORIGINS = [
     'https://api.pentasconstruction.com',
     'http://192.168.18.30:8000',  # <-- Tambahkan ini
@@ -311,9 +244,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# CSRF_COOKIE_SECURE = True
-# SESSION_COOKIE_SECURE = True
 
 if DEBUG:
     CSRF_COOKIE_SECURE = False
@@ -339,8 +269,6 @@ LEAFLET_CONFIG = {
         'forms': {'auto-include': True}, # Ini otomatis mengaktifkan fitur Draw/Edit bawaan
     }
 }
-
-# settings.py
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587

@@ -36,12 +36,9 @@ class _MasterDiPageState extends State<MasterDiPage> {
   void _checkRole() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      // Ambil nilai is_admin yang kita simpan saat login
       _isAdmin = prefs.getBool('is_admin') ?? false;
     });
   }
-
-  // Ambil data terbaru dari Database
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
     final data = await DatabaseService().getAllDIFull();
@@ -55,8 +52,6 @@ class _MasterDiPageState extends State<MasterDiPage> {
     setState(() => _isLoading = true);
     final db = DatabaseService();
     final allData = await db.getAllDIFull();
-
-    // Ambil yang status_sync-nya 0
     final unsynced = allData.where((e) => e['status_sync'] == 0).toList();
 
     if (unsynced.isEmpty) {
@@ -71,7 +66,6 @@ class _MasterDiPageState extends State<MasterDiPage> {
       try {
         final response = await ApiService().syncDaerahIrigasi(item);
         if (response != null) {
-          // Update ID lokal dengan ID dari server
           await db.updateDI(item['id'], {
             'id': response['id'],
             'status_sync': 1,
@@ -85,8 +79,6 @@ class _MasterDiPageState extends State<MasterDiPage> {
     _refreshData(); // Refresh list biar status_sync-nya update di tampilan
     setState(() => _isLoading = false);
   }
-
-  // Dialog Tambah & Edit
   void _showForm(Map<String, dynamic>? data) {
     final kodeCtrl = TextEditingController(text: data?['kode_di'] ?? "");
     final namaCtrl = TextEditingController(text: data?['nama_di'] ?? "");
@@ -199,14 +191,9 @@ class _MasterDiPageState extends State<MasterDiPage> {
   Future<void> _pullDataFromServer() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Ambil data dari server
       final List<dynamic> dataServer = await ApiService().fetchDaerahIrigasi();
-
-      // 2. Bersihkan total database lokal HP
       final db = DatabaseService();
       await db.clearAllDI(); // Menghapus ID 910 dan kawan-kawannya
-
-      // 3. Masukkan data segar (ID 899, 900, 901, 902)
       for (var di in dataServer) {
         await db.insertDIFull({
           'id': di['id'],
@@ -322,39 +309,6 @@ class _MasterDiPageState extends State<MasterDiPage> {
                               item['id'],
                             ), // Panggil fungsi di atas
                           ),
-                        // if (_isAdmin)
-                        //   IconButton(
-                        //     icon: const Icon(Icons.delete, color: Colors.red),
-                        //     onPressed: () async {
-                        //       bool? confirm = await showDialog(
-                        //         context: context,
-                        //         builder: (ctx) => AlertDialog(
-                        //           title: const Text("Hapus Data?"),
-                        //           content: const Text(
-                        //             "Data D.I. ini akan dihapus permanen.",
-                        //           ),
-                        //           actions: [
-                        //             TextButton(
-                        //               onPressed: () =>
-                        //                   Navigator.pop(ctx, false),
-                        //               child: const Text("Batal"),
-                        //             ),
-                        //             TextButton(
-                        //               onPressed: () => Navigator.pop(ctx, true),
-                        //               child: const Text(
-                        //                 "Hapus",
-                        //                 style: TextStyle(color: Colors.red),
-                        //               ),
-                        //             ),
-                        //           ],
-                        //         ),
-                        //       );
-                        //       if (confirm == true) {
-                        //         await DatabaseService().deleteDI(item['id']);
-                        //         _refreshData();
-                        //       }
-                        //     },
-                        //   ),
                       ],
                     ),
                   ),

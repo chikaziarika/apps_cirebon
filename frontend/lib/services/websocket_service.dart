@@ -4,22 +4,16 @@ import 'package:web_socket_channel/io.dart';
 
 class WebSocketService {
   IOWebSocketChannel? _channel;
-
-  // Ganti IP sesuai IP Laptop Anda (cek via 'ipconfig' di CMD)
-  // Contoh: 192.168.1.5
   void connectLiveShared(String ipAddress) {
     _channel = IOWebSocketChannel.connect(Uri.parse('ws://$ipAddress:8000/ws/live/'));
     print("Terhubung ke Live Shared Irigasi");
   }
 
   void startTracking(String surveyorName) async {
-    // 1. Cek & Minta Izin GPS
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       await Geolocator.requestPermission();
     }
-
-    // 2. Kirim koordinat setiap ada perubahan posisi
     Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high, 

@@ -5,11 +5,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 
 class ApiService {
-  // static const String baseUrl = "http://10.0.2.2:8000";
-  // static const String baseUrl = "http://192.168.18.30:8000";
-  // static const String baseUrl = "https://05c3b3fa29c164.lhr.life";\
   static const String baseUrl = "https://sirigasi.dputrkabcirebon.id";
-  // static const String baseUrl = "http://localhost:8000";
 
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
@@ -29,7 +25,6 @@ class ApiService {
         ); 
         debugPrint("✅ TOKEN BERHASIL DISIMPAN: ${body['token']}");
       }
-      // --------------------------------
 
       return {"status": response.statusCode, "body": body};
     } catch (e) {
@@ -119,19 +114,15 @@ class ApiService {
         if (jsonPath != null && jsonPath != "[]" && jsonPath.isNotEmpty) {
           try {
             String filePath = "";
-            // Ekstrak path dari JSON Array
             if (jsonPath.startsWith('[')) {
               List<dynamic> paths = jsonDecode(jsonPath);
               if (paths.isNotEmpty) filePath = paths[0].toString();
             } else {
               filePath = jsonPath;
             }
-
-            // Jika path valid dan ada di memori HP, lampirkan!
             if (filePath.isNotEmpty && !filePath.startsWith('http')) {
               File gambar = File(filePath);
               if (gambar.existsSync()) {
-                // Kita gunakan fromPath (sama seperti cara bangunan) agar format gambar diakui server
                 request.files.add(
                   await http.MultipartFile.fromPath(
                     fieldName, 
@@ -164,7 +155,6 @@ class ApiService {
               if (path.isNotEmpty && !path.startsWith('http')) {
                 File img = File(path);
                 if (img.existsSync()) {
-                  // Namakan filenya: segmen_0_foto_0, segmen_0_foto_1, dst.
                   request.files.add(await http.MultipartFile.fromPath(
                       'segmen_${i}_foto_$j', path,
                       filename: path.split('/').last));
@@ -191,8 +181,6 @@ class ApiService {
       return false;
     }
   }
-
-  // --- SYNC DAERAH IRIGASI ---
   Future<Map<String, dynamic>?> syncDaerahIrigasi(
     Map<String, dynamic> data,
   ) async {
@@ -240,8 +228,6 @@ class ApiService {
       );
 
       request.headers['Authorization'] = "Bearer $token";
-
-      // --- DATA TEKS UTAMA ---
       request.fields['di_id'] = data['di_id'].toString();
       request.fields['nama_di'] = data['nama_di'] ?? "";
       request.fields['nama_saluran'] = data['nama_saluran'] ?? "";
@@ -254,16 +240,12 @@ class ApiService {
       request.fields['kecamatan'] = data['kecamatan'] ?? "";
       request.fields['lat'] = data['lat']?.toString() ?? "0";
       request.fields['lng'] = data['lng']?.toString() ?? "0";
-      
-      // --- SKEMA & JARAK HULU ---
       String teksHulu = data['terhubung_ke_id']?.toString() ?? "";
       
       request.fields['hulu_nomenklatur'] = teksHulu; 
       request.fields['jarak_dari_hulu'] = data['jarak_dari_hulu']?.toString() ?? "0";
       
       debugPrint("🎯 FIX FINAL MENGIRIM HULU KE DJANGO: $teksHulu");
-
-      // --- DATA PINTU ---
       request.fields['lebar_saluran'] = data['lebar_saluran']?.toString() ?? "0";
       request.fields['tinggi_saluran'] = data['tinggi_saluran']?.toString() ?? "0";
       request.fields['pintu_baik'] = data['pintu_baik']?.toString() ?? "0";
@@ -272,31 +254,21 @@ class ApiService {
       request.fields['jenis_pintu'] = data['jenis_pintu'] ?? "";
       request.fields['lebar_pintu'] = data['lebar_pintu']?.toString() ?? "0";
       request.fields['tinggi_pintu'] = data['tinggi_pintu']?.toString() ?? "0";
-
-      // --- DATA PERCABANGAN SISI KIRI ---
       request.fields['jenis_saluran_kiri'] = data['jenis_saluran_kiri'] ?? "TERSIER";
       request.fields['saluran_manual_kiri'] = data['saluran_manual_kiri'] ?? "";
       request.fields['nomenklatur_kiri'] = data['nomenklatur_kiri'] ?? "";
       request.fields['luas_kiri'] = data['luas_kiri']?.toString() ?? "0";
-
-      // --- DATA PERCABANGAN SISI TENGAH ---
       request.fields['jenis_saluran_tengah'] = data['jenis_saluran_tengah'] ?? "INDUK";
       request.fields['saluran_manual_tengah'] = data['saluran_manual_tengah'] ?? "";
       request.fields['nomenklatur_tengah'] = data['nomenklatur_tengah'] ?? "";
       request.fields['luas_tengah'] = data['luas_tengah']?.toString() ?? "0";
-
-      // --- DATA PERCABANGAN SISI KANAN ---
       request.fields['jenis_saluran_kanan'] = data['jenis_saluran_kanan'] ?? "TERSIER";
       request.fields['saluran_manual_kanan'] = data['saluran_manual_kanan'] ?? "";
       request.fields['nomenklatur_kanan'] = data['nomenklatur_kanan'] ?? "";
       request.fields['luas_kanan'] = data['luas_kanan']?.toString() ?? "0";
-
-      // --- DATA CABANG LAINNYA ---
       request.fields['jumlah_cabang_sekunder'] = data['jumlah_cabang_sekunder']?.toString() ?? "0";
       request.fields['jumlah_cabang_tersier'] = data['jumlah_cabang_tersier']?.toString() ?? "0";
       request.fields['is_saluran_berlanjut'] = data['is_saluran_berlanjut']?.toString() ?? "true";
-
-      // --- FILE FOTO BANGUNAN (1-5) ---
       for (int i = 1; i <= 5; i++) {
         String key = 'foto$i';
         String? filePath = data[key];
@@ -307,8 +279,6 @@ class ApiService {
           }
         }
       }
-
-      // --- FILE FOTO PINTU (1-3) ---
       for (int i = 1; i <= 3; i++) {
         String key = 'foto_pintu$i';
         String? filePath = data[key];
@@ -365,26 +335,19 @@ class ApiService {
       throw Exception('Koneksi server gagal: $e');
     }
   }
-
-  // --- PROSES LOGOUT ---
   Future<void> prosesLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    // Gunakan pushReplacement agar tidak bisa 'Back'
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   Future<List<dynamic>> fetchPendingSurveySaluran(int diId) async {
     try {
-      // Pastikan URL ini mengarah ke API list saluran (bukan API sinkronisasi)
       final response = await http.get(Uri.parse('$baseUrl/api/saluran/$diId/'));
 
       if (response.statusCode == 200) {
-        // Perhatikan format JSON dari Django Bapak
         var decoded = json.decode(response.body);
         List<dynamic> allData = decoded['data'] ?? [];
-
-        // FILTER DI SINI: Hanya ambil yang is_approved == false
         return allData.where((item) => item['is_approved'] == false).toList();
       }
       return [];

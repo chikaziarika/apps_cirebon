@@ -36,16 +36,11 @@ class SaluranSerializer(serializers.ModelSerializer):
         return None
 
     def get_bangunan_hulu_nama(self, obj):
-        # 1. Cek apakah Admin sudah mengetik manual di field bangunan_hulu pada tabel Saluran
         manual_hulu = getattr(obj, 'bangunan_hulu', None)
         if manual_hulu and str(manual_hulu).strip() not in ["", "-", "None"]:
             return manual_hulu
-
-        # 2. Jika kosong, gunakan logika Otomatis (Jika saluran Induk -> Hulu adalah Bendung)
         if obj.nama_saluran and "INDUK" in str(obj.nama_saluran).upper():
             return obj.daerah_irigasi.bendung if obj.daerah_irigasi and obj.daerah_irigasi.bendung else "Bendung"
-        
-        # 3. Otomatis untuk Sekunder/Tersier (Ambil bangunan ID terkecil/pertama diinput)
         first_bangunan = Bangunan.objects.filter(saluran=obj).order_by('id').first()
         if first_bangunan:
             return first_bangunan.nomenklatur_ruas
@@ -53,14 +48,9 @@ class SaluranSerializer(serializers.ModelSerializer):
         return "-"
 
     def get_bangunan_hilir_otomatis(self, obj):
-        # 1. Cek apakah Admin sudah mengetik manual di field bangunan_hilir pada tabel Saluran
         manual_hilir = getattr(obj, 'bangunan_hilir', None)
         if manual_hilir and str(manual_hilir).strip() not in ["", "-", "None"]:
             return manual_hilir
-
-        # 2. Jika kosong, cari otomatis bangunan terakhir di saluran tersebut.
-        # TAPI FILTER CERDAS: Abaikan bangunan yang namanya mengandung "BD" atau "Bendung"
-        # karena Bendung tidak mungkin berada di ujung hilir!
         last_bangunan = Bangunan.objects.filter(
             saluran=obj
         ).exclude(
@@ -127,14 +117,10 @@ class DaerahIrigasiSerializer(serializers.ModelSerializer):
     
     def get_total_bangunan(self, obj):
         return Bangunan.objects.filter(saluran__daerah_irigasi=obj).count()
-
-# --- SERIALIZER BARU UNTUK PINTU ---
 class UnitPintuBangunanSerializer(serializers.ModelSerializer):
     jenis_pintu_nama = serializers.ReadOnlyField(source='jenis_pintu.nama')
 
     foto_pintu_url = serializers.SerializerMethodField()
-    
-    # Tambahkan SerializerMethodField agar kita bisa memanipulasi output fotonya
     foto_pintu_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -143,8 +129,6 @@ class UnitPintuBangunanSerializer(serializers.ModelSerializer):
             'id', 'nama_pintu', 'kondisi', 'lebar_pintu', 'tinggi_pintu', 
             'foto_pintu', 'foto_pintu_url', 'jenis_pintu_nama'
         ]
-
-    # Fungsi untuk memastikan URL foto valid dan absolut
     def get_foto_pintu_url(self, obj):
         request = self.context.get('request')
         if obj.foto_pintu and hasattr(obj.foto_pintu, 'url'):

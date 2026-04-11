@@ -55,25 +55,18 @@ class FormBangunanPage extends StatefulWidget {
 }
 
 class _FormBangunanPageState extends State<FormBangunanPage> {
-  // 1. Controller Identitas & Lokasi
   final TextEditingController _panjangRuasCtrl = TextEditingController(text: "0");
   final TextEditingController _namaAsetCtrl = TextEditingController();
   final TextEditingController _kecamatanCtrl = TextEditingController();
   final TextEditingController _desaCtrl = TextEditingController();
   final TextEditingController _lebarPintuCtrl = TextEditingController(text: "0");
   final TextEditingController _tinggiPintuCtrl = TextEditingController(text: "0");
-  
-  // 2. Controller Dimensi Saluran Lanjutan
   final TextEditingController _lebarCtrl = TextEditingController(text: "0");
   final TextEditingController _tinggiCtrl = TextEditingController(text: "0");
-  
-  // 3. Controller Pintu
   final TextEditingController _jenisPintuCtrl = TextEditingController();
   final TextEditingController _pB = TextEditingController(text: "0");
   final TextEditingController _pRR = TextEditingController(text: "0");
   final TextEditingController _pRB = TextEditingController(text: "0");
-
-  // 4. Controller Percabangan (Kiri, Tengah, Kanan)
   final TextEditingController _nomKiriCtrl = TextEditingController();
   final TextEditingController _luasKiriCtrl = TextEditingController(text: "0");
   final TextEditingController _nomTengahCtrl = TextEditingController();
@@ -93,8 +86,6 @@ class _FormBangunanPageState extends State<FormBangunanPage> {
   String? _jenisKiri = 'TERSIER';
   String? _jenisTengah = 'INDUK';
   String? _jenisKanan = 'TERSIER';
-
-  // ARRAY FOTO: Dipisah antara foto umum bangunan dan foto khusus pintu
   List<File?> _fotos = List.filled(5, null);
   List<DoorItem> _listPintu = [DoorItem(" - Pintu 1")]; // Inisialisasi 1 pintu pertama
   final List<String> _pilihanJenisPintu = ['Sorong', 'Romyn', 'Tarik', 'Klep', 'Otomatis'];
@@ -113,14 +104,11 @@ class _FormBangunanPageState extends State<FormBangunanPage> {
 
 Future<void> _fetchHuluLokal() async {
     final dbClient = await DatabaseService().database;
-    // Mengambil semua kolom (*) agar lat dan lng pasti ikut terbawa
     final res = await dbClient.query('surveys', where: 'di_id = ?', whereArgs: [widget.diId]);
     
     setState(() {
       _huluListLokal = res;
     });
-    
-    // DEBUG: Cek isi list hulu yang ditarik dari SQLite HP
     if (res.isNotEmpty) {
       print("📦 ISI DATA HULU PERTAMA DI HP: ${res.first}");
     }
@@ -187,14 +175,10 @@ Future<void> _fetchHuluLokal() async {
 
     _lebarPintuCtrl.text = d['lebar_pintu']?.toString() ?? "0";
     _tinggiPintuCtrl.text = d['tinggi_pintu']?.toString() ?? "0";
-
-    // Load foto umum
     for (int i = 1; i <= 5; i++) {
       String? pathFoto = d['foto$i'];
       if (pathFoto != null && pathFoto.isNotEmpty) _fotos[i - 1] = File(pathFoto);
     }
-    
-    // Load foto pintu
     for (int i = 1; i <= 3; i++) {
       String? pathFotoPintu = d['foto_pintu1'];
     if (pathFotoPintu != null && pathFotoPintu.isNotEmpty) {
@@ -227,8 +211,6 @@ Future<void> _fetchHuluLokal() async {
       setState(() => _isLoading = false);
     }
   }
-
-  // FUNGSI PICKER FOTO UMUM
   Future<void> _pickImage(int index) async {
     final picked = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 35);
     if (picked != null) setState(() => _fotos[index] = File(picked.path));
@@ -274,37 +256,6 @@ Future<void> _fetchHuluLokal() async {
       }
     }
 
-    
-
-    // if (_terhubungKeId != null && _terhubungKeId!.isNotEmpty && _lat != null && _lng != null) {
-    //   try {
-    //     // 1. Cari data hulu di SQLite yang namanya persis sama dengan yang dipilih
-    //     var hulu = _huluListLokal.firstWhere(
-    //       (b) => (b['nomenklatur_ruas'] ?? b['nama_bangunan']) == _terhubungKeId,
-    //     );
-
-    //     double latHulu = double.tryParse(hulu['lat'].toString()) ?? 0.0;
-    //     double lngHulu = double.tryParse(hulu['lng'].toString()) ?? 0.0;
-
-    //     debugPrint("📍 Koordinat Hulu: $latHulu, $lngHulu | Titik Skrg: $_lat, $_lng");
-
-    //     // 2. Jika koordinat hulu BUKAN 0.0, barulah hitung!
-    //     if (latHulu != 0.0 && lngHulu != 0.0) {
-    //       jarakOtomatis = Geolocator.distanceBetween(latHulu, lngHulu, _lat!, _lng!);
-    //       debugPrint("✅ BERHASIL DIHITUNG! Jaraknya: $jarakOtomatis meter");
-    //     } else {
-    //       debugPrint("⚠️ GAGAL HITUNG: Bangunan Hulu ini tidak punya koordinat (0.0) di SQLite!");
-    //     }
-    //   } catch (e) {
-    //     debugPrint("⚠️ GAGAL HITUNG: Nama Hulu '$_terhubungKeId' tidak ditemukan di database HP.");
-    //   }
-    // }
-
-    // // Fallback: Jika gagal dihitung, ambil dari inputan manual atau tracking
-    // if (jarakOtomatis <= 0.0) {
-    //   jarakOtomatis = double.tryParse(_panjangRuasCtrl.text) ?? widget.jarakDariHulu;
-    // }
-
     String namaHuluTerpilih = "";
     if (_terhubungKeId != null) {
       var hulu = _huluListLokal.firstWhere((b) => b['id'] == _terhubungKeId, orElse: () => {});
@@ -329,8 +280,6 @@ Future<void> _fetchHuluLokal() async {
       
       'lebar_saluran': double.tryParse(_lebarCtrl.text) ?? 0,
       'tinggi_saluran': double.tryParse(_tinggiCtrl.text) ?? 0,
-      
-      // --- GUNAKAN HASIL REKAPAN PINTU DI SINI ---
       'pintu_baik': pB,
       'pintu_rr': pRR,
       'pintu_rb': pRB,
@@ -341,7 +290,6 @@ Future<void> _fetchHuluLokal() async {
       'foto_pintu1': kumpulFotoPintu.isNotEmpty ? kumpulFotoPintu[0] : '',
       'foto_pintu2': kumpulFotoPintu.length > 1 ? kumpulFotoPintu[1] : '',
       'foto_pintu3': kumpulFotoPintu.length > 2 ? kumpulFotoPintu[2] : '',
-      // -------------------------------------------
       
       'terhubung_ke_id': _terhubungKeId ?? "", 
       'jarak_dari_hulu': jarakOtomatis,
@@ -364,8 +312,6 @@ Future<void> _fetchHuluLokal() async {
       'lat': _lat ?? 0.0,
       'lng': _lng ?? 0.0,
       'keterangan': _ketCtrl.text,
-      
-      // Foto Umum Bangunan
       'foto1': _fotos[0]?.path ?? '',
       'foto2': _fotos[1]?.path ?? '',
       'foto3': _fotos[2]?.path ?? '',
@@ -423,7 +369,6 @@ Future<void> _fetchHuluLokal() async {
               padding: const EdgeInsets.all(15),
               child: Column(
                 children: [
-                  // 1. DATA BANGUNAN & SKEMA HULU
                   _buildExpansionCard(
                     title: "1. Identitas Bangunan",
                     icon: Icons.apartment,
@@ -532,17 +477,11 @@ Future<void> _fetchHuluLokal() async {
                             if (v != null) {
                               try {
                                 print("🚀 Nembak API Server untuk cari koordinat '$v'...");
-                                
-                                // =======================================================
-                                // PERBAIKAN: Nembak ke DI ID, bukan ID Bangunan
-                                // =======================================================
                                 final response = await http.get(Uri.parse("${ApiService.baseUrl}/api/bangunan/${widget.diId}/"));
                                 
                                 if (response.statusCode == 200) {
                                   var jsonRes = jsonDecode(response.body);
                                   var listData = jsonRes['data'] as List; 
-
-                                  // Cari bangunan yang namanya persis dengan yang dipilih
                                   var dataFresh = listData.firstWhere(
                                     (b) => (b['nomenklatur_ruas'] ?? b['nama_bangunan']) == v,
                                     orElse: () => null
@@ -556,8 +495,6 @@ Future<void> _fetchHuluLokal() async {
 
                                     if (latH != 0.0 && _lat != null && _lat != 0.0) {
                                       double jarak = Geolocator.distanceBetween(latH, lngH, _lat!, _lng!);
-                                      
-                                      // Jangan lupa pakai setState agar UI kotaknya ikut ter-refresh
                                       setState(() {
                                         _panjangRuasCtrl.text = jarak.toStringAsFixed(2);
                                       });
@@ -591,8 +528,6 @@ Future<void> _fetchHuluLokal() async {
                       ],
                     ),
                   ),
-
-                  // 4. LOKASI GPS & DOKUMENTASI UMUM
                   _buildExpansionCard(
                     title: "2. Dokumentasi Bangunan",
                     icon: Icons.camera_alt,
@@ -634,10 +569,6 @@ Future<void> _fetchHuluLokal() async {
                   ),
 
                   const SizedBox(height: 20),
-
-                  
-
-                  // 3. PINTU AIR (DYNAMIC LIST)
                     if (_asetBerpintu.contains(_selKodeAset))
                       _buildExpansionCard(
                         title: "3. Kondisi Pintu Air",
@@ -740,8 +671,6 @@ Future<void> _fetchHuluLokal() async {
                       ],
                     ),
                   ),            
-
-                // 4. KELANJUTAN & PERCABANGAN
                   _buildExpansionCard(
                     title: "4. Data Percabangan & Kelanjutan",
                     icon: Icons.account_tree,
@@ -775,10 +704,6 @@ Future<void> _fetchHuluLokal() async {
                       ],
                     ),
                   ),
-
-                  
-
-                  // TOMBOL SIMPAN
                   _isLoading
                       ? const CircularProgressIndicator()
                       : SizedBox(
@@ -804,8 +729,6 @@ Future<void> _fetchHuluLokal() async {
       ),
     );
   }
-
-  // --- HELPER WIDGETS ---
   Widget _buildExpansionCard({required String title, required IconData icon, required Widget child, bool initiallyExpanded = false}) {
     return Card(
       elevation: 2,

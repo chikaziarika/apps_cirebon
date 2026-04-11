@@ -21,7 +21,6 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadUser();
-    // _loadStatistics();
   }
 
 
@@ -237,27 +236,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const SizedBox(height: 25),
-
-          // Container(
-          //   padding: const EdgeInsets.symmetric(vertical: 18),
-          //   decoration: BoxDecoration(
-          //     color: Colors.white.withOpacity(0.12),
-          //     borderRadius: BorderRadius.circular(20),
-          //   ),
-          //   child: Row(
-          //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-          //     children: [
-          //       _headerStat(
-          //         "$_totalSaluran",
-          //         "Total Saluran",
-          //       ), // Pakai variabel Pak
-          //       _vDivider(),
-          //       _headerStat("$_totalBangunan", "Total Bangunan"),
-          //       _vDivider(),
-          //       _headerStat("$_belumSinkron", "Belum Sinkron"),
-          //     ],
-          //   ),
-          // ),
         ],
       ),
     );
@@ -293,8 +271,6 @@ class _DashboardPageState extends State<DashboardPage> {
   ) {
     return InkWell(
       onTap: () {
-        // Logika baru: Kalau halamannya ada, pindah halaman.
-        // Kalau null, munculkan peringatan "Sedang dikembangkan".
         if (page != null) {
           Navigator.push(
             context,
