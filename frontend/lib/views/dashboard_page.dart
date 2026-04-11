@@ -97,6 +97,20 @@ class _DashboardPageState extends State<DashboardPage> {
                         const Color(0xFFD81B60),
                         const MasterDiPage(),
                       ),
+                      _menuTile(
+                        context,
+                        "Data Saluran",
+                        Icons.waves_rounded,
+                        const Color(0xFF00897B), // Warna hijau tosca
+                        null, // <--- Dibuat null agar memunculkan pesan
+                      ),
+                      _menuTile(
+                        context,
+                        "Data Bangunan",
+                        Icons.apartment_rounded,
+                        const Color(0xFFF4511E), // Warna oranye kemerahan
+                        null, // <--- Dibuat null agar memunculkan pesan
+                      ),
 
                     ],
                   ),
@@ -275,13 +289,27 @@ class _DashboardPageState extends State<DashboardPage> {
     String title,
     IconData icon,
     Color color,
-    Widget page,
+    Widget? page, // <--- Perhatikan ada tanda tanya (?) di sini
   ) {
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => page),
-      ),
+      onTap: () {
+        // Logika baru: Kalau halamannya ada, pindah halaman.
+        // Kalau null, munculkan peringatan "Sedang dikembangkan".
+        if (page != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("🚧 Modul ini sedang dalam pengembangan!"),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
