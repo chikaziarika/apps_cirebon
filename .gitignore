@@ -21,3 +21,4 @@ __pycache__/
 .DS_Store
 Thumbs.db
 backend/staticfiles/
+backend/main/settings.py
