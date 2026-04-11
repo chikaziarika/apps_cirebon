@@ -161,7 +161,8 @@ class DetailLayananBangunanSerializer(serializers.ModelSerializer):
     all_photos = serializers.SerializerMethodField()
     
     unit_pintu = UnitPintuBangunanSerializer(many=True, read_only=True)
-    
+
+    bangunan_hulu = serializers.SerializerMethodField()    
 
     class Meta:
         model = DetailLayananBangunan
@@ -170,7 +171,7 @@ class DetailLayananBangunanSerializer(serializers.ModelSerializer):
             'nama_di', 'nama_saluran', 'nomenklatur_ruas',
             'unit_pintu',
             
-            # --- KEMBALIKAN FIELD KIRI, TENGAH, KANAN KE SINI ---
+            'bangunan_hulu',
             'nomenklatur_kiri', 'luas_kiri', 'jenis_saluran_kiri', 'saluran_manual_kiri',
             'nomenklatur_tengah', 'luas_tengah', 'jenis_saluran_tengah', 'saluran_manual_tengah',
             'nomenklatur_kanan', 'luas_kanan', 'jenis_saluran_kanan', 'saluran_manual_kanan',
@@ -180,6 +181,11 @@ class DetailLayananBangunanSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'kecamatan', 'desa', 'surveyor', 'keterangan',
             'all_photos'
         ]
+    
+    def get_bangunan_hulu(self, obj):
+        if obj.bangunan and obj.bangunan.terhubung_ke:
+            return obj.bangunan.terhubung_ke.nomenklatur_ruas
+        return "-"
 
     def get_all_photos(self, obj):
         photo_urls = []

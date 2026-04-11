@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import '../services/sync_page.dart';
-import '../views/main_survey_page.dart';
+import '../views/form_pra_survey_page.dart';
 import '../views/master_di_page.dart';
 import '../views/widgets/app_drawer.dart';
-import 'package:sqflite/sqflite.dart';
-import '../services/database_service.dart';
+
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -25,50 +24,7 @@ class _DashboardPageState extends State<DashboardPage> {
     // _loadStatistics();
   }
 
-  int _totalSaluran = 0;
-  int _totalBangunan = 0;
-  int _belumSinkron = 0;
 
-  // Future<void> _loadStatistics() async {
-  //   final db = DatabaseService();
-  //   final dbClient = await db.database;
-
-  //   // 1. Hitung Total Saluran
-  //   final countSaluran =
-  //       Sqflite.firstIntValue(
-  //         await dbClient.rawQuery('SELECT COUNT(*) FROM saluran'),
-  //       ) ??
-  //       0;
-
-  //   // 2. Hitung Total Bangunan (dari tabel surveys)
-  //   final countBangunan =
-  //       Sqflite.firstIntValue(
-  //         await dbClient.rawQuery('SELECT COUNT(*) FROM surveys'),
-  //       ) ??
-  //       0;
-
-  //   // 3. Hitung Data Belum Sinkron (status_sync = 0 dari kedua tabel)
-  //   final unsyncedSaluran =
-  //       Sqflite.firstIntValue(
-  //         await dbClient.rawQuery(
-  //           'SELECT COUNT(*) FROM saluran WHERE status_sync = 0',
-  //         ),
-  //       ) ??
-  //       0;
-  //   final unsyncedBangunan =
-  //       Sqflite.firstIntValue(
-  //         await dbClient.rawQuery(
-  //           'SELECT COUNT(*) FROM surveys WHERE status_sync = 0',
-  //         ),
-  //       ) ??
-  //       0;
-
-  //   setState(() {
-  //     _totalSaluran = countSaluran;
-  //     _totalBangunan = countBangunan;
-  //     _belumSinkron = unsyncedSaluran + unsyncedBangunan;
-  //   });
-  // }
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,14 +47,13 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD), // Warna background lebih soft
+      backgroundColor: const Color(0xFFF8F9FD), 
       drawer: const AppDrawer(),
       body: Column(
         children: [
-          // 1. HEADER SECTION (Modern Gradient)
+
           _buildHeader(context),
 
-          // 2. MENU SECTION
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 30),
@@ -126,7 +81,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         "Survey D.I.",
                         Icons.map_outlined,
                         const Color(0xFF1E88E5),
-                        const MainSurveyPage(),
+                        const FormPraSurveyPage(),
                       ),
                       _menuTile(
                         context,
@@ -142,7 +97,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         const Color(0xFFD81B60),
                         const MasterDiPage(),
                       ),
-                      // Menu Peta GIS, Saluran, Bangunan disembunyikan dulu
+
                     ],
                   ),
                 ],
@@ -179,7 +134,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TOP ROW: Menu & Logout
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -201,11 +156,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 10),
 
-          // JUDUL, DESKRIPSI & LOGO
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // KIRI: Teks Judul & Deskripsi
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
               const SizedBox(width: 15),
-              // KANAN: Logo SIRIGASI
+
               Container(
                 width: 90,
                 height: 90,
@@ -243,7 +197,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   image: const DecorationImage(
                     image: AssetImage(
                       'assets/images/logo_sirigasi.png',
-                    ), // Pastikan file ada di folder assets
+                    ), 
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -252,7 +206,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 25),
 
-          // USER INFO
+
           Text(
             "Selamat Bekerja,",
             style: TextStyle(
@@ -270,7 +224,6 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 25),
 
-          // CARD RINGKASAN DATA (UPDATING LABELS)
           // Container(
           //   padding: const EdgeInsets.symmetric(vertical: 18),
           //   decoration: BoxDecoration(

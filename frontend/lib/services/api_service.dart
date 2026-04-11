@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 
 class ApiService {
-  // Gunakan IP Laptop jika pakai Emulator, atau IP Lokal jika pakai HP asli
   // static const String baseUrl = "http://10.0.2.2:8000";
   // static const String baseUrl = "http://192.168.18.30:8000";
   // static const String baseUrl = "https://05c3b3fa29c164.lhr.life";\
-  static const String baseUrl = "https://api.pentasconstruction.com";
+  static const String baseUrl = "https://sirigasi.dputrkabcirebon.id";
+  // static const String baseUrl = "http://localhost:8000";
 
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
@@ -21,13 +21,12 @@ class ApiService {
 
       final body = jsonDecode(response.body);
 
-      // --- TAMBAHKAN BAGIAN INI PAK ---
       if (response.statusCode == 200 && body['token'] != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'token',
           body['token'],
-        ); // Simpan token ke memori HP
+        ); 
         debugPrint("✅ TOKEN BERHASIL DISIMPAN: ${body['token']}");
       }
       // --------------------------------
@@ -44,13 +43,12 @@ class ApiService {
 
   Future<List<dynamic>> fetchMasterHulu(int diId) async {
     try {
-      // Pastikan endpoint ini sesuai dengan yang ada di Django/Server Bapak
+
       final response = await http.get(
         Uri.parse('$baseUrl/api/master-hulu/$diId/'),
       );
 
       if (response.statusCode == 200) {
-        // Kita asumsikan server mengembalikan data dalam bentuk List
         final List<dynamic> responseData = json.decode(response.body);
         return responseData;
       } else {
@@ -61,7 +59,6 @@ class ApiService {
     }
   }
 
-  // --- FUNGSI FETCH DATA ---
   Future<List<dynamic>> fetchDaerahIrigasi() async {
     try {
       final response = await http.get(
@@ -92,10 +89,7 @@ class ApiService {
         Uri.parse("$baseUrl/api/sync/saluran/"),
       );
 
-      // 1. Header
       request.headers['Authorization'] = "Bearer $token";
-
-      // 2. Data Utama (Gunakan null check yang kuat)
       request.fields['di_id'] = (data['di_id'] ?? "").toString();
       request.fields['nama_saluran'] = data['nama_saluran']?.toString() ?? "";
       request.fields['surveyor'] = data['surveyor']?.toString() ?? "Anonim";
@@ -107,9 +101,6 @@ class ApiService {
       request.fields['path_koordinat'] =
           data['path_koordinat']?.toString() ?? "";
       request.fields['path_kondisi'] = data['path_kondisi']?.toString() ?? "[]";
-
-      // 3. Data Kondisi (Pastikan field BAP selalu terkirim sebagai string, jangan null)
-      // Server error 'bap' biasanya karena field ini kosong atau tidak terdefinisi
       request.fields['panjang_bap'] = (data['panjang_bap'] ?? 0).toString();
       request.fields['keterangan_baik'] = (data['keterangan_baik'] ?? "")
           .toString();
@@ -124,29 +115,31 @@ class ApiService {
         request.fields['kondisi_utama'] = data['kondisi_aktif'].toString();
       }
 
-      // 4. Logika Upload Foto (Sudah Rapi)
-      void addImageFile(String fieldName, String? jsonPath) {
+      Future<void> attachFoto(String fieldName, String? jsonPath) async {
         if (jsonPath != null && jsonPath != "[]" && jsonPath.isNotEmpty) {
           try {
             String filePath = "";
+            // Ekstrak path dari JSON Array
             if (jsonPath.startsWith('[')) {
               List<dynamic> paths = jsonDecode(jsonPath);
-              if (paths.isNotEmpty) filePath = paths[0];
+              if (paths.isNotEmpty) filePath = paths[0].toString();
             } else {
               filePath = jsonPath;
             }
 
-            if (filePath.isNotEmpty) {
+            // Jika path valid dan ada di memori HP, lampirkan!
+            if (filePath.isNotEmpty && !filePath.startsWith('http')) {
               File gambar = File(filePath);
               if (gambar.existsSync()) {
+                // Kita gunakan fromPath (sama seperti cara bangunan) agar format gambar diakui server
                 request.files.add(
-                  http.MultipartFile.fromBytes(
-                    fieldName,
-                    gambar.readAsBytesSync(),
-                    filename: filePath.split('/').last,
-                  ),
+                  await http.MultipartFile.fromPath(
+                    fieldName, 
+                    filePath, 
+                    filename: filePath.split('/').last
+                  )
                 );
-                debugPrint("📸 Foto $fieldName berhasil dilampirkan.");
+                debugPrint("📸 Foto Saluran $fieldName dilampirkan: $filePath");
               }
             }
           } catch (e) {
@@ -155,12 +148,36 @@ class ApiService {
         }
       }
 
-      addImageFile('foto_baik', data['foto_baik']);
-      addImageFile('foto_rr', data['foto_rr']);
-      addImageFile('foto_rb', data['foto_rb']);
-      addImageFile('foto_bap', data['foto_bap']);
+      await attachFoto('foto_baik', data['foto_baik']);
+      await attachFoto('foto_rr', data['foto_rr']);
+      await attachFoto('foto_rb', data['foto_rb']);
+      await attachFoto('foto_bap', data['foto_bap']);
 
-      // 5. Kirim data
+      if (data['path_kondisi'] != null && data['path_kondisi'] != "[]") {
+        try {
+          List<dynamic> segmenList = jsonDecode(data['path_kondisi']);
+          for (int i = 0; i < segmenList.length; i++) {
+            List<dynamic> segFotos = segmenList[i]['fotos'] ?? [];
+            for (int j = 0; j < segFotos.length; j++) {
+              if (j >= 5) break; // Maksimal 5 foto sesuai Django
+              String path = segFotos[j].toString();
+              if (path.isNotEmpty && !path.startsWith('http')) {
+                File img = File(path);
+                if (img.existsSync()) {
+                  // Namakan filenya: segmen_0_foto_0, segmen_0_foto_1, dst.
+                  request.files.add(await http.MultipartFile.fromPath(
+                      'segmen_${i}_foto_$j', path,
+                      filename: path.split('/').last));
+                  debugPrint("📸 Foto Segmen Ke-$i (Foto $j) dilampirkan!");
+                }
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint("⚠️ Gagal membungkus foto segmen: $e");
+        }
+      }
+
       var response = await request.send();
       var responseData = await http.Response.fromStream(response);
 
@@ -200,7 +217,6 @@ class ApiService {
       debugPrint("🟢 RESPONSE DI: ${response.statusCode} - ${response.body}");
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        // Balikin datanya dalam bentuk Map supaya bisa dibaca response['id']
         return jsonDecode(response.body);
       } else {
         return null;
@@ -218,17 +234,14 @@ class ApiService {
     if (token == null) return false;
 
     try {
-      // 1. Gunakan MultipartRequest untuk kirim Foto
       var request = http.MultipartRequest(
         'POST',
         Uri.parse("$baseUrl/api/sync/bangunan/"),
       );
 
-      // 2. Header Token
       request.headers['Authorization'] = "Bearer $token";
 
-      // 3. Tambahkan Data Teks
-      // Pastikan key (sebelah kiri) SAMA PERSIS dengan field di Django Bapak
+      // --- DATA TEKS UTAMA ---
       request.fields['di_id'] = data['di_id'].toString();
       request.fields['nama_di'] = data['nama_di'] ?? "";
       request.fields['nama_saluran'] = data['nama_saluran'] ?? "";
@@ -236,49 +249,82 @@ class ApiService {
       request.fields['kode_aset'] = data['kode_aset'] ?? "";
       request.fields['kondisi_bangunan'] = data['kondisi_bangunan'] ?? "";
       request.fields['surveyor'] = data['surveyor'] ?? "Anonim";
-      request.fields['lebar_saluran'] = data['lebar_saluran'].toString();
-      request.fields['tinggi_saluran'] = data['tinggi_saluran'].toString();
-      request.fields['pintu_baik'] = data['pintu_baik'].toString();
-      request.fields['pintu_rr'] = data['pintu_rr'].toString();
-      request.fields['pintu_rb'] = data['pintu_rb'].toString();
-      request.fields['jenis_pintu'] = data['jenis_pintu'] ?? "";
-      request.fields['jarak_dari_hulu'] = data['jarak_dari_hulu'].toString();
+      request.fields['keterangan'] = data['keterangan'] ?? "";
       request.fields['desa'] = data['desa'] ?? "";
       request.fields['kecamatan'] = data['kecamatan'] ?? "";
-      request.fields['lat'] = data['lat'].toString();
-      request.fields['lng'] = data['lng'].toString();
-      request.fields['keterangan'] =
-          data['keterangan'] ?? ""; // Keterangan Bangunan
+      request.fields['lat'] = data['lat']?.toString() ?? "0";
+      request.fields['lng'] = data['lng']?.toString() ?? "0";
+      
+      // --- SKEMA & JARAK HULU ---
+      String teksHulu = data['terhubung_ke_id']?.toString() ?? "";
+      
+      request.fields['hulu_nomenklatur'] = teksHulu; 
+      request.fields['jarak_dari_hulu'] = data['jarak_dari_hulu']?.toString() ?? "0";
+      
+      debugPrint("🎯 FIX FINAL MENGIRIM HULU KE DJANGO: $teksHulu");
 
-      // 4. Tambahkan File Foto (foto1 sampai foto5)
+      // --- DATA PINTU ---
+      request.fields['lebar_saluran'] = data['lebar_saluran']?.toString() ?? "0";
+      request.fields['tinggi_saluran'] = data['tinggi_saluran']?.toString() ?? "0";
+      request.fields['pintu_baik'] = data['pintu_baik']?.toString() ?? "0";
+      request.fields['pintu_rr'] = data['pintu_rr']?.toString() ?? "0";
+      request.fields['pintu_rb'] = data['pintu_rb']?.toString() ?? "0";
+      request.fields['jenis_pintu'] = data['jenis_pintu'] ?? "";
+      request.fields['lebar_pintu'] = data['lebar_pintu']?.toString() ?? "0";
+      request.fields['tinggi_pintu'] = data['tinggi_pintu']?.toString() ?? "0";
+
+      // --- DATA PERCABANGAN SISI KIRI ---
+      request.fields['jenis_saluran_kiri'] = data['jenis_saluran_kiri'] ?? "TERSIER";
+      request.fields['saluran_manual_kiri'] = data['saluran_manual_kiri'] ?? "";
+      request.fields['nomenklatur_kiri'] = data['nomenklatur_kiri'] ?? "";
+      request.fields['luas_kiri'] = data['luas_kiri']?.toString() ?? "0";
+
+      // --- DATA PERCABANGAN SISI TENGAH ---
+      request.fields['jenis_saluran_tengah'] = data['jenis_saluran_tengah'] ?? "INDUK";
+      request.fields['saluran_manual_tengah'] = data['saluran_manual_tengah'] ?? "";
+      request.fields['nomenklatur_tengah'] = data['nomenklatur_tengah'] ?? "";
+      request.fields['luas_tengah'] = data['luas_tengah']?.toString() ?? "0";
+
+      // --- DATA PERCABANGAN SISI KANAN ---
+      request.fields['jenis_saluran_kanan'] = data['jenis_saluran_kanan'] ?? "TERSIER";
+      request.fields['saluran_manual_kanan'] = data['saluran_manual_kanan'] ?? "";
+      request.fields['nomenklatur_kanan'] = data['nomenklatur_kanan'] ?? "";
+      request.fields['luas_kanan'] = data['luas_kanan']?.toString() ?? "0";
+
+      // --- DATA CABANG LAINNYA ---
+      request.fields['jumlah_cabang_sekunder'] = data['jumlah_cabang_sekunder']?.toString() ?? "0";
+      request.fields['jumlah_cabang_tersier'] = data['jumlah_cabang_tersier']?.toString() ?? "0";
+      request.fields['is_saluran_berlanjut'] = data['is_saluran_berlanjut']?.toString() ?? "true";
+
+      // --- FILE FOTO BANGUNAN (1-5) ---
       for (int i = 1; i <= 5; i++) {
         String key = 'foto$i';
         String? filePath = data[key];
-
-        if (filePath != null &&
-            filePath.isNotEmpty &&
-            !filePath.startsWith('http')) {
+        if (filePath != null && filePath.isNotEmpty && !filePath.startsWith('http')) {
           File gambar = File(filePath);
           if (gambar.existsSync()) {
-            request.files.add(
-              await http.MultipartFile.fromPath(
-                key,
-                filePath,
-                filename: filePath.split('/').last,
-              ),
-            );
-            debugPrint("📸 Lampirkan $key: $filePath");
+            request.files.add(await http.MultipartFile.fromPath(key, filePath, filename: filePath.split('/').last));
           }
         }
       }
 
-      // 5. Kirim ke Server
+      // --- FILE FOTO PINTU (1-3) ---
+      for (int i = 1; i <= 3; i++) {
+        String key = 'foto_pintu$i';
+        String? filePath = data[key];
+        if (filePath != null && filePath.isNotEmpty && !filePath.startsWith('http')) {
+          File gambar = File(filePath);
+          if (gambar.existsSync()) {
+            request.files.add(await http.MultipartFile.fromPath(key, filePath, filename: filePath.split('/').last));
+            debugPrint("📸 Lampirkan PINTU $key: $filePath");
+          }
+        }
+      }
+
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint(
-        "🟢 RESPONSE BANGUNAN: ${response.statusCode} - ${response.body}",
-      );
+      debugPrint("🟢 RESPONSE BANGUNAN: ${response.statusCode} - ${response.body}");
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       debugPrint("🔴 ERROR FATAL SYNC BANGUNAN: $e");

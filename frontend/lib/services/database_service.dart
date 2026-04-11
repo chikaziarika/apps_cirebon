@@ -18,41 +18,63 @@ class DatabaseService {
     String path = p.join(await getDatabasesPath(), 'epaksi.db');
     return await openDatabase(
       path,
-      version: 9,
+      version: 12, // <-- VERSI NAIK JADI 10
       onCreate: (db, version) async {
         await db.execute('''
-      CREATE TABLE surveys (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        di_id INTEGER,
-        foto_rr1 TEXT, foto_rr2 TEXT, foto_rr3 TEXT, foto_rr4 TEXT, foto_rr5 TEXT,
-        foto_rb1 TEXT, foto_rb2 TEXT, foto_rb3 TEXT, foto_rb4 TEXT, foto_rb5 TEXT,
-        ket_baik TEXT, ket_rr TEXT, ket_rb TEXT,
-        nama_di TEXT,
-        nama_saluran TEXT,
-        nama_bangunan TEXT,
-        kode_aset TEXT,
-        kondisi_bangunan TEXT,
-        surveyor TEXT,          
-        lebar_saluran REAL,      
-        tinggi_saluran REAL,
-        pintu_baik INTEGER,    
-        pintu_rr INTEGER,     
-        pintu_rb INTEGER,      
-        jenis_pintu TEXT,
-        nomenklatur_ruas TEXT,
-        hulu_id INTEGER, 
-        jarak_dari_hulu REAL,
-        kecamatan TEXT,
-        desa TEXT,
-        luas_areal REAL,
-        foto1 TEXT, foto2 TEXT, foto3 TEXT, foto4 TEXT, foto5 TEXT,
-        lat REAL,
-        lng REAL,
-        keterangan TEXT, 
-        keterangan_tambahan TEXT,
-        status_sync INTEGER DEFAULT 0
-      )
-    ''');
+          CREATE TABLE surveys(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            di_id INTEGER,
+            nama_di TEXT,
+            nama_saluran TEXT,
+            nama_bangunan TEXT,
+            kode_aset TEXT,
+            kondisi_bangunan TEXT,
+            surveyor TEXT,
+            lebar_saluran REAL,
+            tinggi_saluran REAL,
+            pintu_baik INTEGER,
+            pintu_rr INTEGER,
+            pintu_rb INTEGER,
+            
+            -- INI KOLOM BARU YANG WAJIB ADA DI ONCREATE
+            lebar_pintu REAL DEFAULT 0,
+            tinggi_pintu REAL DEFAULT 0,
+            jenis_pintu TEXT,
+            jenis_saluran_kiri TEXT,
+            saluran_manual_kiri TEXT,
+            nomenklatur_kiri TEXT,
+            luas_kiri REAL DEFAULT 0,
+            jenis_saluran_tengah TEXT,
+            saluran_manual_tengah TEXT,
+            nomenklatur_tengah TEXT,
+            luas_tengah REAL DEFAULT 0,
+            jenis_saluran_kanan TEXT,
+            saluran_manual_kanan TEXT,
+            nomenklatur_kanan TEXT,
+            luas_kanan REAL DEFAULT 0,
+            jumlah_cabang_sekunder INTEGER DEFAULT 0,
+            jumlah_cabang_tersier INTEGER DEFAULT 0,
+            is_saluran_berlanjut INTEGER DEFAULT 1,
+            -- END KOLOM BARU
+            
+            jarak_dari_hulu REAL,
+            desa TEXT,
+            kecamatan TEXT,
+            lat REAL,
+            lng REAL,
+            keterangan TEXT,
+            foto1 TEXT,
+            foto2 TEXT,
+            foto3 TEXT,
+            foto4 TEXT,
+            foto5 TEXT,
+            foto_pintu1 TEXT,
+            foto_pintu2 TEXT,
+            foto_pintu3 TEXT,
+            terhubung_ke_id TEXT,
+            status_sync INTEGER DEFAULT 0
+          )
+        ''');
 
         await db.execute('''
       CREATE TABLE saluran (
@@ -105,58 +127,32 @@ class DatabaseService {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // LOGIKA UPGRADE AGAR TABEL BARU TERBUAT DI HP YANG SUDAH TERINSTAL
         if (oldVersion < 2) {
-          await db.execute(
-            "ALTER TABLE surveys ADD COLUMN kondisi_bangunan TEXT DEFAULT 'BAIK'",
-          );
+          await db.execute("ALTER TABLE surveys ADD COLUMN kondisi_bangunan TEXT DEFAULT 'BAIK'");
         }
         if (oldVersion < 3) {
           await db.execute("ALTER TABLE surveys ADD COLUMN surveyor TEXT");
-          await db.execute(
-            "ALTER TABLE surveys ADD COLUMN lebar_saluran REAL DEFAULT 0",
-          );
-          await db.execute(
-            "ALTER TABLE surveys ADD COLUMN tinggi_saluran REAL DEFAULT 0",
-          );
+          await db.execute("ALTER TABLE surveys ADD COLUMN lebar_saluran REAL DEFAULT 0");
+          await db.execute("ALTER TABLE surveys ADD COLUMN tinggi_saluran REAL DEFAULT 0");
         }
         if (oldVersion < 5) {
-          // Upgrade versi 5 yang Bapak buat sebelumnya
           var columns = [
-            'foto_rr1',
-            'foto_rr2',
-            'foto_rr3',
-            'foto_rr4',
-            'foto_rr5',
-            'foto_rb1',
-            'foto_rb2',
-            'foto_rb3',
-            'foto_rb4',
-            'foto_rb5',
-            'ket_baik',
-            'ket_rr',
-            'ket_rb',
+            'foto_rr1', 'foto_rr2', 'foto_rr3', 'foto_rr4', 'foto_rr5',
+            'foto_rb1', 'foto_rb2', 'foto_rb3', 'foto_rb4', 'foto_rb5',
+            'ket_baik', 'ket_rr', 'ket_rb',
           ];
           for (var col in columns) {
             await db.execute("ALTER TABLE surveys ADD COLUMN $col TEXT");
           }
-
           var saluranCols = [
-            'keterangan_baik',
-            'keterangan_rr',
-            'keterangan_rb',
-            'foto_baik',
-            'foto_rr',
-            'foto_rb',
+            'keterangan_baik', 'keterangan_rr', 'keterangan_rb',
+            'foto_baik', 'foto_rr', 'foto_rb',
           ];
           for (var col in saluranCols) {
             await db.execute("ALTER TABLE saluran ADD COLUMN $col TEXT");
           }
         }
-
-        // --- BAGIAN PENTING: UPGRADE KE VERSI 6 ---
         if (oldVersion < 6) {
-          // Membuat tabel tracking_draft jika belum ada
           await db.execute('''
             CREATE TABLE IF NOT EXISTS tracking_draft (
               di_id INTEGER PRIMARY KEY,
@@ -168,40 +164,86 @@ class DatabaseService {
               kondisi_aktif TEXT
             )
           ''');
-          print(
-            "✅ Database di-upgrade ke versi 6: Tabel tracking_draft berhasil dibuat.",
-          );
+          print("✅ Database di-upgrade ke versi 6");
         }
         if (oldVersion < 7) {
           await db.execute("ALTER TABLE saluran ADD COLUMN surveyor TEXT");
-          print(
-            "✅ Database di-upgrade ke versi 7: Kolom surveyor ditambahkan ke tabel saluran.",
-          );
+          print("✅ Database di-upgrade ke versi 7");
         }
         if (oldVersion < 8) {
           try {
-            await db.execute(
-              "ALTER TABLE surveys ADD COLUMN keterangan_tambahan TEXT",
-            );
-            print(
-              "✅ Database di-upgrade ke versi 8: Kolom keterangan_tambahan ditambahkan.",
-            );
-          } catch (e) {
-            print("ℹ️ Kolom mungkin sudah ada, skip upgrade: $e");
-          }
+            await db.execute("ALTER TABLE surveys ADD COLUMN keterangan_tambahan TEXT");
+            print("✅ Database di-upgrade ke versi 8");
+          } catch (e) { print("ℹ️ Kolom mungkin sudah ada, skip upgrade: $e"); }
         }
         if (oldVersion < 9) {
           try {
-            await db.execute(
-              "ALTER TABLE saluran ADD COLUMN keterangan_bap TEXT",
-            );
+            await db.execute("ALTER TABLE saluran ADD COLUMN keterangan_bap TEXT");
             await db.execute("ALTER TABLE saluran ADD COLUMN foto_bap TEXT");
-            await db.execute(
-              "ALTER TABLE saluran ADD COLUMN panjang_bap REAL DEFAULT 0",
-            );
-            print("✅ Database di-upgrade ke versi 9: Kolom BAP ditambahkan.");
+            await db.execute("ALTER TABLE saluran ADD COLUMN panjang_bap REAL DEFAULT 0");
+            print("✅ Database di-upgrade ke versi 9");
+          } catch (e) { print("ℹ️ Kolom BAP mungkin sudah ada: $e"); }
+        }
+        
+        // --- UPGRADE KE VERSI 10: INJEKSI KOLOM BARU TANPA HAPUS APLIKASI ---
+        if (oldVersion < 10) {
+          var newColumns = [
+            'foto_pintu1 TEXT', 'foto_pintu2 TEXT', 'foto_pintu3 TEXT',
+            'terhubung_ke_id INTEGER', 'is_saluran_berlanjut INTEGER',
+            'jenis_saluran_kiri TEXT', 'nomenklatur_kiri TEXT', 'luas_kiri REAL',
+            'jenis_saluran_tengah TEXT', 'nomenklatur_tengah TEXT', 'luas_tengah REAL',
+            'jenis_saluran_kanan TEXT', 'nomenklatur_kanan TEXT', 'luas_kanan REAL'
+          ];
+          for (var colDef in newColumns) {
+            try {
+              await db.execute("ALTER TABLE surveys ADD COLUMN $colDef");
+            } catch (e) {
+              print("ℹ️ Kolom mungkin sudah ada: $e");
+            }
+          }
+          print("✅ Database di-upgrade ke versi 10: Kolom Foto Pintu & Percabangan berhasil ditambahkan.");
+        }
+
+        if (oldVersion < 11) {
+          try {
+            await db.execute("ALTER TABLE surveys ADD COLUMN lebar_pintu REAL DEFAULT 0");
+            await db.execute("ALTER TABLE surveys ADD COLUMN tinggi_pintu REAL DEFAULT 0");
+            print("✅ Database di-upgrade ke versi 11: Lebar & Tinggi Pintu ditambahkan.");
           } catch (e) {
-            print("ℹ️ Kolom BAP mungkin sudah ada: $e");
+            print("ℹ️ Kolom mungkin sudah ada: $e");
+          }
+        }
+
+        if (oldVersion < 12) {
+          try {
+            await db.execute("ALTER TABLE surveys ADD COLUMN lebar_pintu REAL DEFAULT 0");
+            await db.execute("ALTER TABLE surveys ADD COLUMN tinggi_pintu REAL DEFAULT 0");
+            await db.execute("ALTER TABLE surveys ADD COLUMN jenis_pintu TEXT");
+            
+            // Kolom Cabang Kiri
+            await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_kiri TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_kiri TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_kiri TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN luas_kiri REAL DEFAULT 0");
+            
+            // Kolom Cabang Tengah
+            await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_tengah TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_tengah TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_tengah TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN luas_tengah REAL DEFAULT 0");
+            
+            // Kolom Cabang Kanan
+            await db.execute("ALTER TABLE surveys ADD COLUMN jenis_saluran_kanan TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN saluran_manual_kanan TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN nomenklatur_kanan TEXT");
+            await db.execute("ALTER TABLE surveys ADD COLUMN luas_kanan REAL DEFAULT 0");
+            
+            // Lainnya
+            await db.execute("ALTER TABLE surveys ADD COLUMN jumlah_cabang_sekunder INTEGER DEFAULT 0");
+            await db.execute("ALTER TABLE surveys ADD COLUMN jumlah_cabang_tersier INTEGER DEFAULT 0");
+            await db.execute("ALTER TABLE surveys ADD COLUMN is_saluran_berlanjut INTEGER DEFAULT 1");
+          } catch (e) {
+            print("ℹ️ Kolom mungkin sudah ada: $e");
           }
         }
       },
@@ -219,67 +261,39 @@ class DatabaseService {
       'surveys',
       where: 'di_id = ? AND status_sync = 1',
       whereArgs: [diId],
-      orderBy: 'id DESC', // Urutkan dari yang terbaru
+      orderBy: 'id DESC', 
     );
   }
 
-  // Simpan atau Update Draft
   Future<void> saveDraft(Map<String, dynamic> draftData) async {
     final db = await database;
-    await db.insert(
-      'tracking_draft',
-      draftData,
-      conflictAlgorithm:
-          ConflictAlgorithm.replace, // Jika ID sama, timpa yang lama
-    );
+    await db.insert('tracking_draft', draftData, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Ambil Draft berdasarkan DI
   Future<Map<String, dynamic>?> getDraft(int diId) async {
     final db = await database;
-    final res = await db.query(
-      'tracking_draft',
-      where: 'di_id = ?',
-      whereArgs: [diId],
-    );
+    final res = await db.query('tracking_draft', where: 'di_id = ?', whereArgs: [diId]);
     return res.isNotEmpty ? res.first : null;
   }
 
-  // Hapus Draft (Setelah survey SELESAI/SIMPAN)
   Future<void> deleteDraft(int diId) async {
     final db = await database;
     await db.delete('tracking_draft', where: 'di_id = ?', whereArgs: [diId]);
   }
 
-  // Fungsi untuk tambah DI baru secara manual dari form
   Future<int> insertDI(String nama) async {
     final db = await database;
-    // Kita gunakan conflictAlgorithm agar kalau namanya sama tidak error
-    return await db.insert('daerah_irigasi', {
-      'nama_di': nama,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    return await db.insert('daerah_irigasi', {'nama_di': nama}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  // Cari fungsi ini dan pastikan kodenya seperti ini Pak:
   Future<int> markSaluranAsSynced(int id) async {
-    final dbClient =
-        await database; // Pastikan pakai 'await database' (sesuai nama getter di file Bapak)
-    return await dbClient.update(
-      'saluran',
-      {'status_sync': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final dbClient = await database; 
+    return await dbClient.update('saluran', {'status_sync': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> markSurveyAsSynced(int id) async {
-    final dbClient = await database; // Samakan dengan yang di atas
-    return await dbClient.update(
-      'surveys',
-      {'status_sync': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final dbClient = await database; 
+    return await dbClient.update('surveys', {'status_sync': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, dynamic>>> getAllSurveys() async {
@@ -289,26 +303,15 @@ class DatabaseService {
 
   Future<int> insertSurvey(Map<String, dynamic> data) async {
     final db = await database;
-    return await db.insert(
-      'surveys',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return await db.insert('surveys', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Fungsi untuk mengecek apakah ada survey yang belum selesai (status_sync = 0)
   Future<Map<String, dynamic>?> getUnfinishedSurvey(int diId) async {
     final db = await _instance.database;
-    final res = await db.query(
-      'saluran', // pastikan nama tabel sesuai, biasanya 'saluran'
-      where: 'di_id = ? AND status_sync = 0',
-      whereArgs: [diId],
-      limit: 1,
-    );
+    final res = await db.query('saluran', where: 'di_id = ? AND status_sync = 0', whereArgs: [diId], limit: 1);
     return res.isNotEmpty ? res.first : null;
   }
 
-  // Fungsi "Terima Beres" untuk update keterangan & status
   Future<bool> simpanKeteranganSurvey({
     required int diId,
     required String ketBaik,
@@ -318,8 +321,6 @@ class DatabaseService {
   }) async {
     try {
       final db = await _instance.database;
-
-      // Kita update semua keterangan sekaligus dan set status_sync jadi 1 (Selesai)
       int count = await db.update(
         'saluran',
         {
@@ -327,12 +328,11 @@ class DatabaseService {
           'keterangan_rr': ketRR,
           'keterangan_rb': ketRB,
           'keterangan_bap': ketBAP,
-          'status_sync': 1, // Tandai sudah selesai/siap setor
+          'status_sync': 1, 
         },
         where: 'di_id = ?',
         whereArgs: [diId],
       );
-
       return count > 0;
     } catch (e) {
       print("Error simpan: $e");
@@ -340,15 +340,9 @@ class DatabaseService {
     }
   }
 
-  // Fungsi untuk mengubah status sync menjadi sudah terkirim (1)
   Future<int> updateStatusSurvey(int diId, int status) async {
     final db = await _instance.database;
-    return await db.update(
-      'saluran',
-      {'status_sync': status},
-      where: 'di_id = ? AND status_sync = 0',
-      whereArgs: [diId],
-    );
+    return await db.update('saluran', {'status_sync': status}, where: 'di_id = ? AND status_sync = 0', whereArgs: [diId]);
   }
 
   Future<void> clearAllDI() async {
@@ -358,16 +352,11 @@ class DatabaseService {
 
   Future<void> saveSurveyLokal(Map<String, dynamic> data) async {
     final db = await database;
-    await db.insert(
-      'surveys',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('surveys', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> cleanDuplicateData() async {
     final db = await database;
-    // Menghapus baris yang namanya sama, sisakan ID yang paling besar (terbaru)
     await db.execute('''
     DELETE FROM saluran 
     WHERE id NOT IN (SELECT MAX(id) FROM saluran GROUP BY nama_saluran)
@@ -396,11 +385,7 @@ class DatabaseService {
 
   Future<int> insertDIFull(Map<String, dynamic> data) async {
     final db = await database;
-    return await db.insert(
-      'daerah_irigasi',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    return await db.insert('daerah_irigasi', data, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<int> deleteSaluran(int id) async {
@@ -410,12 +395,7 @@ class DatabaseService {
 
   Future<int> updateDI(int id, Map<String, dynamic> data) async {
     final db = await database;
-    return await db.update(
-      'daerah_irigasi',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.update('daerah_irigasi', data, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> deleteDI(int id) async {
@@ -430,64 +410,41 @@ class DatabaseService {
 
   Future<int> insertSaluran(Map<String, dynamic> data) async {
     final db = await database;
-    return await db.insert(
-      'saluran',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return await db.insert('saluran', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> updateSyncStatus(String table, int id) async {
     final db = await database;
-    await db.update(
-      table,
-      {'status_sync': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update(table, {'status_sync': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, dynamic>>> getUniqueSaluranByDI(int diId) async {
     final db = await database;
-    return await db.rawQuery(
-      "SELECT DISTINCT nama_saluran FROM saluran WHERE di_id = ?",
-      [diId],
-    );
+    return await db.rawQuery("SELECT DISTINCT nama_saluran FROM saluran WHERE di_id = ?", [diId]);
   }
 
   Future<List<Map<String, dynamic>>> getUniqueBangunanByDI(int diId) async {
     final db = await database;
-    return await db.rawQuery(
-      "SELECT DISTINCT nama_bangunan FROM surveys WHERE di_id = ?",
-      [diId],
-    );
+    return await db.rawQuery("SELECT DISTINCT nama_bangunan FROM surveys WHERE di_id = ?", [diId]);
   }
 
   Future<List<Map<String, dynamic>>> getPendingApprovalSaluran(int diId) async {
     final db = await database;
-    return await db.query(
-      'saluran',
-      where:
-          'di_id = ? AND status_sync = 0', // status_sync 0 berarti inputan baru surveyor
-      orderBy: 'id DESC',
-    );
+    return await db.query('saluran', where: 'di_id = ? AND status_sync = 0', orderBy: 'id DESC');
   }
 
   Future<List<Map<String, dynamic>>> getPendingSaluran(int diId) async {
     final db = await database;
-    return await db.rawQuery(
-      '''
+    return await db.rawQuery('''
     SELECT * FROM saluran 
     WHERE di_id = ? AND status_sync = 0 
     GROUP BY nama_saluran 
     ORDER BY id DESC
-  ''',
-      [diId],
-    );
+  ''', [diId]);
   }
 
   Future<int> updateSaluran(int id, Map<String, dynamic> data) async {
-    final db = await database; // Pastikan getter database-nya benar
+    final db = await database; 
     return await db.update('saluran', data, where: 'id = ?', whereArgs: [id]);
   }
 }

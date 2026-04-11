@@ -56,29 +56,29 @@ class _AppDrawerState extends State<AppDrawer> {
             title: const Text("Dashboard Utama"),
             onTap: () => Navigator.pop(context),
           ),
-          ListTile(
-            leading: const Icon(Icons.map),
-            title: const Text("Peta Irigasi"),
-            onTap: () {
-              /* Navigasi ke Peta */
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.list_alt),
-            title: const Text("Master Daerah Irigasi"),
-            onTap: () {
-              Navigator.pop(context); // Tutup drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MasterDiPage()),
-              );
-            },
-          ),
+          // ListTile(
+          //   leading: const Icon(Icons.map),
+          //   title: const Text("Peta Irigasi"),
+          //   onTap: () {
+          //     /* Navigasi ke Peta */
+          //   },
+          // ),
+          // ListTile(
+          //   leading: const Icon(Icons.list_alt),
+          //   title: const Text("Master Daerah Irigasi"),
+          //   onTap: () {
+          //     Navigator.pop(context); // Tutup drawer
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (context) => const MasterDiPage()),
+          //     );
+          //   },
+          // ),
 
-          const Spacer(), // Dorong menu logout ke paling bawah
+          const Spacer(), 
           const Divider(),
 
-          // TOMBOL LOGOUT
+
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text(

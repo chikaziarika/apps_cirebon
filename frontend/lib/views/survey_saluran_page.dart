@@ -13,10 +13,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../views/form_kondisi_segmen_page.dart';
+import '../views/form_input_bangunan.dart';
 
 class SurveySaluranPage extends StatefulWidget {
   final Map<String, dynamic> dataDI;
-  const SurveySaluranPage({super.key, required this.dataDI});
+  final String namaSaluran;
+  final String tingkatJaringan;
+  final String jenisSaluran;
+  final String kewenangan;
+
+  const SurveySaluranPage({
+    super.key,
+    required this.dataDI,
+    required this.namaSaluran,
+    required this.tingkatJaringan,
+    required this.jenisSaluran,
+    required this.kewenangan,
+  });
 
   @override
   State<SurveySaluranPage> createState() => _SurveySaluranPageState();
@@ -43,7 +57,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   double _panjangBap = 0.0; // Tambahkan ini
   List<Map<String, dynamic>> _listDetailSegmen = [];
   List<String> _currentFotos = []; // Tambahkan ini di bagian atas Class
-
+  bool _isUIVisible = true;
   double _totalDistance = 0.0;
   double _jarakSegmenIni = 0.0;
   double? _currentLat;
@@ -89,13 +103,13 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   final List<Map<String, String>> _jaringanChoices = [
     {'code': 'S01', 'name': 'S01 - Saluran Primer'},
     {'code': 'S02', 'name': 'S02 - Saluran Sekunder'},
-    // {'code': 'S03', 'name': 'S03 - Saluran Suplesi'},
-    // {'code': 'S04', 'name': 'S04 - Saluran Muka'},
-    // {'code': 'S11', 'name': 'S11 - Saluran Pembuang'},
-    // {'code': 'S12', 'name': 'S12 - Saluran Gendong'},
-    // {'code': 'S13', 'name': 'S13 - Saluran Pengelak Banjir'},
+    {'code': 'S03', 'name': 'S03 - Saluran Suplesi'},
+    {'code': 'S04', 'name': 'S04 - Saluran Muka'},
+    {'code': 'S11', 'name': 'S11 - Saluran Pembuang'},
+    {'code': 'S12', 'name': 'S12 - Saluran Gendong'},
+    {'code': 'S13', 'name': 'S13 - Saluran Pengelak Banjir'},
     {'code': 'S15', 'name': 'S15 - Saluran Tersier'},
-    // {'code': 'S16', 'name': 'S16 - Saluran Kuarter'},
+    {'code': 'S16', 'name': 'S16 - Saluran Kuarter'},
     {'code': 'S17', 'name': 'S17 - Saluran Pembuang (Tersier)'},
   ];
 
@@ -147,6 +161,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   @override
   void initState() {
     super.initState();
+    _namaSaluranCtrl.text = widget.namaSaluran;
+    _selectedTingkatJaringan = widget.tingkatJaringan;
+    _selectedJaringan = widget.jenisSaluran;
+    _selectedKewenangan = widget.kewenangan;
     _initLocationMonitoring();
     _loadSurveyorName();
     _loadExistingData();
@@ -587,7 +605,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       return;
     }
 
-    // Jika lolos semua validasi di atas, baru jalankan proses simpan segmen...
 
     LatLng titikMarker = _currentPath.last;
     String kondisiSaatIni = _selectedKondisi;
@@ -642,14 +659,14 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         _panjangBap += _jarakSegmenIni;
       }
 
-      String kondisiLama = _selectedKondisi;
+      // String kondisiLama = _selectedKondisi;
 
       _keteranganKondisiCtrl.clear();
       _currentFotos = [];
 
-      if (_fotoSaluran[kondisiLama] != null) {
-        _fotoSaluran[kondisiLama] = [];
-      }
+      // if (_fotoSaluran[kondisiLama] != null) {
+      //   _fotoSaluran[kondisiLama] = [];
+      // }
       _currentPath = [lastPoint]; // Reset jalur mulai dari titik terakhir
       _jarakSegmenIni = 0;
 
@@ -679,64 +696,68 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
   void _showTagBangunanDialog() async {
     if (_currentPath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Belum ada koordinat! Mulai tracking dulu Pak."),
-        ),
+        const SnackBar(content: Text("Belum ada koordinat! Mulai tracking dulu Pak.", style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
       );
       return;
     }
+    
     LatLng lokasiSaatIni = _currentPath.last;
-    final Map<String, dynamic>? result = await Navigator.push(
+
+    // 1. PAUSE TRACKING SEBELUM BUKA FORM
+    if (_isTracking && !_isPaused) {
+      _pauseTracking(); // Hentikan GPS sementara
+    }
+
+    // Ambil daftar bangunan yang sudah pernah dibuat di DI ini (sebagai opsi Hulu)
+    final db = DatabaseService();
+    final dbClient = await db.database;
+    final List<Map<String, dynamic>> bangunanLokal = await dbClient.query(
+      'surveys',
+      where: 'di_id = ?',
+      whereArgs: [widget.dataDI['id']],
+    );
+
+    if (!mounted) return;
+
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FormBangunanDetail(
+        builder: (context) => FormBangunanPage(
           diId: widget.dataDI['id'],
           namaDI: widget.dataDI['nama_di'] ?? "D.I.",
-          namaSaluran: _namaSaluranCtrl.text.isEmpty
-              ? "Tanpa Nama"
-              : _namaSaluranCtrl.text,
+          namaSaluran: _namaSaluranCtrl.text.isEmpty ? "Tanpa Nama" : _namaSaluranCtrl.text,
           lat: lokasiSaatIni.latitude,
           lng: lokasiSaatIni.longitude,
-          jarakAntarRuas: _jarakSegmenIni,
+          jarakDariHulu: _jarakSegmenIni, 
           bangunanChoices: _bangunanChoices,
+          listBangunanHulu: bangunanLokal, 
         ),
       ),
     );
+
     if (result != null) {
       setState(() {
-        _jarakSegmenIni = 0;
+        _jarakSegmenIni = 0; 
         _existingMarkers.add(
           Marker(
             point: LatLng(result['lat'], result['lng']),
-            width: 90,
-            height: 90,
+            width: 90, height: 90,
             child: GestureDetector(
               onTap: () => _showDetailBangunan(result),
               child: Column(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(width: 0.5),
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(width: 0.5)),
                     child: Text(
                       "${result['nama_saluran']}\n${result['nama_bangunan']}",
-                      style: const TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold), textAlign: TextAlign.center,
                     ),
                   ),
                   Image.asset(
                     'assets/icons/${result['kode_aset']}.png',
-                    cacheWidth: 50,
-                    width: 28,
-                    height: 28,
-                    errorBuilder: (c, e, s) =>
-                        const Icon(Icons.location_on, color: Colors.orange),
+                    width: 28, height: 28,
+                    errorBuilder: (c, e, s) => const Icon(Icons.location_on, color: Colors.orange),
                   ),
                 ],
               ),
@@ -744,6 +765,15 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           ),
         );
       });
+      
+      // 3. TAMPILKAN INSTRUKSI LANJUT SURVEY KE SURVEYOR
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("✅ Bangunan tersimpan! Silakan tekan tombol 'Lanjut/Play' untuk meneruskan tracking saluran."),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4), // Tampil agak lama biar terbaca
+        )
+      );
     }
   }
 
@@ -1350,310 +1380,161 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
+  Widget _buildTopInfoCard() {
+    String namaAsetFull = widget.jenisSaluran; 
+    try {
+      final choice = _jaringanChoices.firstWhere((element) => element['code'] == widget.jenisSaluran);
+      namaAsetFull = choice['name']!;
+    } catch (e) { }
 
-        if (!_isTracking) {
-          _positionStream?.cancel();
-          Navigator.pop(context);
-          return;
-        }
+    String kondisiTampil = (_selectedKondisi.trim().isEmpty) ? "BAIK" : _selectedKondisi;
 
-        final bool shouldPop =
-            await showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text("Peringatan!"),
-                content: const Text(
-                  "Anda saat ini sedang melakukan survey. Selesaikan terlebih dahulu atau data akan hilang.",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text("LANJUT SURVEY"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text(
-                      "KELUAR",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-        if (shouldPop) {
-          _positionStream?.cancel();
-          Navigator.pop(context);
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            "Survey: ${widget.dataDI['nama_di']} | Petugas: $_currentSurveyor",
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: const TextStyle(fontSize: 13),
-          ),
-          backgroundColor: Colors.blue,
-        ),
-        body: Column(
-          children: [
-            // BAGIAN ATAS: PETA (FLEX 3)
-            Expanded(
-              flex: 3,
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: const LatLng(-6.826, 108.604),
-                      initialZoom: 15,
-                      // FITUR GESER/TAMBAH TITIK MANUAL
-                      onTap: (tapPos, point) {
-                        if (_isTracking) {
-                          setState(() => _currentPath.add(point));
-                        }
-                      },
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.sirigasi.cirebon.survey',
-                      ),
-                      PolylineLayer(
-                        polylines: [
-                          ..._existingPolylines,
-                          ..._pathHistory,
-                          Polyline(
-                            points: _currentPath,
-                            color: _getWarnaKondisi(_selectedKondisi),
-                            strokeWidth: 5,
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      // Jika sembunyi, geser ke atas sampai minus 200 pixel
+      top: _isUIVisible ? MediaQuery.of(context).padding.top + 15 : -200, 
+      left: 15,
+      right: 15,
+      child: Card(
+        elevation: 4, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.all(15.0), 
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("D.I. ${widget.dataDI['nama_di']}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0D47A1))),
+                    const SizedBox(height: 4),
+                    Text("Saluran: ${widget.namaSaluran}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text("${widget.tingkatJaringan} | $namaAsetFull", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text("${(_totalDistance / 1000).toStringAsFixed(3)} KM", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getWarnaKondisi(kondisiTampil).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: _getWarnaKondisi(kondisiTampil), width: 0.5),
                           ),
-                        ],
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          ..._existingMarkers,
-                          ..._markersKondisi,
-                          // IKON ORANG (LOKASI SAYA)
-                          if (_currentLat != null && _currentLng != null)
-                            Marker(
-                              point: LatLng(_currentLat!, _currentLng!),
-                              width: 80,
-                              height: 80,
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.8),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: Colors.blue,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _currentSurveyor,
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.directions_walk,
-                                    color: Colors.blue,
-                                    size: 45,
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
+                          child: Text("Kondisi: $kondisiTampil", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getWarnaKondisi(kondisiTampil))),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (_isTracking || _currentPath.isNotEmpty) 
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1), 
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                  ),
+                  onPressed: _simpanSurveyData,
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.save, size: 20),
+                      SizedBox(height: 4),
+                      Text("SELESAI", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
+                )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                  // 1. PANEL INFO KM & BANGUNAN (KIRI ATAS)
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildOverlayInfoKM(),
-                        const SizedBox(height: 5),
-                        _buildOverlayInfoBangunan(),
-                      ],
-                    ),
-                  ),
-
-                  // 2. PANEL TOMBOL NAVIGASI, ZOOM & UNDO (KANAN ATAS/TENGAH)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Column(
-                      children: [
-                        // TOMBOL UNDO (Hanya muncul saat Tracking)
-                        if (_isTracking)
-                          FloatingActionButton.small(
-                            heroTag: "btnUndo",
-                            backgroundColor: Colors.redAccent,
-                            onPressed: _undoLastPoint,
-                            child: const Icon(Icons.undo, color: Colors.white),
-                          ),
-                        if (_isTracking) const SizedBox(height: 10),
-
-                        // TOMBOL PUSATKAN LOKASI
-                        FloatingActionButton.small(
-                          heroTag: "btnPusat",
-                          backgroundColor: Colors.white,
-                          onPressed: () {
-                            if (_currentLat != null) {
-                              _mapController.move(
-                                LatLng(_currentLat!, _currentLng!),
-                                18.0,
-                              );
-                            }
-                          },
-                          child: const Icon(
-                            Icons.my_location,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // --- TOMBOL ZOOM IN (+) ---
-                        FloatingActionButton.small(
-                          heroTag: "btnZoomIn",
-                          backgroundColor: Colors.white,
-                          onPressed: () {
-                            final currentZoom = _mapController.camera.zoom;
-                            _mapController.move(
-                              _mapController.camera.center,
-                              currentZoom + 1,
-                            );
-                          },
-                          child: const Icon(Icons.add, color: Colors.black87),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // --- TOMBOL ZOOM OUT (-) ---
-                        FloatingActionButton.small(
-                          heroTag: "btnZoomOut",
-                          backgroundColor: Colors.white,
-                          onPressed: () {
-                            final currentZoom = _mapController.camera.zoom;
-                            _mapController.move(
-                              _mapController.camera.center,
-                              currentZoom - 1,
-                            );
-                          },
-                          child: const Icon(
-                            Icons.remove,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 3. PANEL KOORDINAT & TAG BANGUNAN (KANAN BAWAH)
-                  Positioned(
-                    bottom: 15,
-                    right: 15,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // INFO KOORDINAT
-                        if (_currentLat != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              "${_currentLat!.toStringAsFixed(6)}, ${_currentLng!.toStringAsFixed(6)}",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(width: 10),
-                        // TOMBOL TAG BANGUNAN
-                        _buildFloatingTagButton(),
-                      ],
-                    ),
-                  ),
-                ],
+  Widget _buildBottomNavigationBar() {
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      // Jika sembunyi, geser ke bawah sampai minus 150 pixel
+      bottom: _isUIVisible ? MediaQuery.of(context).padding.bottom + 15 : -150, 
+      left: 15,
+      right: 15,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), 
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 15, offset: Offset(0, 8))],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // TOMBOL KONDISI
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _isTracking ? () async {
+                  if (!_isPaused) _pauseTracking();
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => FormKondisiSegmenPage(kondisiSaatIni: _selectedKondisi, jarakDitempuh: _jarakSegmenIni)),
+                  );
+                  if (_isPaused) _pauseTracking();
+                  if (result != null) _prosesSimpanSegmenBaru(result);
+                } : null,
+                icon: const Icon(Icons.tune, size: 16),
+                label: const FittedBox(child: Text("Kondisi", style: TextStyle(fontWeight: FontWeight.bold))),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black87,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
               ),
             ),
+            const SizedBox(width: 12),
 
-            // BAGIAN BAWAH: FORM & TAB (FLEX 4)
+            // TOMBOL MULAI / PAUSE
+            FloatingActionButton(
+              heroTag: "btnCenter",
+              elevation: 2, 
+              backgroundColor: !_isTracking ? const Color(0xFF0D47A1) : (_isPaused ? Colors.amber[700] : Colors.red[600]),
+              onPressed: () {
+                if (!_isTracking) {
+                  _startTracking(); 
+                } else {
+                  _pauseTracking(); 
+                }
+              },
+              child: Icon(
+                !_isTracking ? Icons.play_arrow_rounded : (_isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded),
+                color: Colors.white,
+                size: 35,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // TOMBOL BANGUNAN
             Expanded(
-              flex: 4,
-              child: DefaultTabController(
-                length: 2,
-                child: NestedScrollView(
-                  headerSliverBuilder: (context, innerBoxIsScrolled) {
-                    return [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(15),
-                          child: Column(
-                            children: [
-                              _buildFormUtama(),
-                              const SizedBox(height: 10),
-                              _buildKoneksiHulu(),
-                              const SizedBox(height: 10),
-                              _buildKondisiSegmen(),
-                              const SizedBox(height: 20),
-                              _buildTombolAksi(),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _SliverAppBarDelegate(
-                          const TabBar(
-                            labelColor: Colors.blue,
-                            unselectedLabelColor: Colors.grey,
-                            indicatorColor: Colors.blue,
-                            tabs: [
-                              Tab(
-                                icon: Icon(Icons.apartment),
-                                text: "Daftar Bangunan",
-                              ),
-                              Tab(
-                                icon: Icon(Icons.alt_route),
-                                text: "Daftar Saluran",
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ];
-                  },
-                  body: TabBarView(
-                    children: [
-                      _buildWrapList(_buildPendingApprovalList()),
-                      _buildWrapList(_buildPendingSaluranList()),
-                    ],
-                  ),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  if (_isTracking && !_isPaused) _pauseTracking(); 
+                  _showTagBangunanDialog();
+                },
+                icon: const Icon(Icons.apartment, size: 16),
+                label: const FittedBox(child: Text("Bangunan", style: TextStyle(fontWeight: FontWeight.bold))),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black87,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
               ),
             ),
@@ -1663,90 +1544,168 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
     );
   }
 
-  // ==========================================
-  // FUNGSI-FUNGSI PEMBANTU (WIDGET HELPERS)
-  // ==========================================
+  
+  
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (!_isTracking) {
+          _positionStream?.cancel();
+          Navigator.pop(context);
+          return;
+        }
+        final bool shouldPop = await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Peringatan!"),
+                content: const Text("Survey sedang berjalan. Selesaikan terlebih dahulu atau data akan hilang."),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("LANJUT SURVEY")),
+                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("KELUAR", style: TextStyle(color: Colors.red))),
+                ],
+              ),
+            ) ?? false;
+        if (shouldPop) {
+          _positionStream?.cancel();
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true, 
+        body: Stack(
+          children: [
+            // 1. PETA GOOGLE MAPS STANDAR
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: const LatLng(-6.826, 108.604),
+                initialZoom: 15,
+                maxZoom: 22, 
+                onTap: (tapPos, point) {
+                  if (_isTracking) {
+                    setState(() => _currentPath.add(point));
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://mt0.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}',
+                  userAgentPackageName: 'com.sirigasi.cirebon.survey',
+                  maxNativeZoom: 20, 
+                ),
+                PolylineLayer(
+                  polylines: [
+                    ..._existingPolylines,
+                    ..._pathHistory,
+                    if (_currentPath.length > 1) 
+                      Polyline(
+                        points: _currentPath,
+                        color: _getWarnaKondisi(_selectedKondisi),
+                        strokeWidth: 5,
+                      ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    ..._existingMarkers,
+                    ..._markersKondisi,
+                    if (_currentLat != null && _currentLng != null)
+                      Marker(
+                        point: LatLng(_currentLat!, _currentLng!),
+                        width: 80,
+                        height: 80,
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.blue, width: 1),
+                              ),
+                              child: Text(
+                                _currentSurveyor,
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const Icon(Icons.directions_walk, color: Colors.blue, size: 40),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+
+            // 2. KARTU INFO PRA-SURVEY (BISA HIDE/SHOW)
+            _buildTopInfoCard(),
+
+            // 3. TOMBOL KANAN BAWAH (HIDE UI & PUSAT LOKASI)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              right: 15,
+              // Posisi tombol turun merapat ke bawah jika bottom bar disembunyikan
+              bottom: _isUIVisible 
+                  ? MediaQuery.of(context).padding.bottom + 90 
+                  : MediaQuery.of(context).padding.bottom + 15, 
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: "btnHideUI",
+                    backgroundColor: Colors.white,
+                    onPressed: () => setState(() => _isUIVisible = !_isUIVisible),
+                    child: Icon(
+                      _isUIVisible ? Icons.fullscreen : Icons.fullscreen_exit, 
+                      color: Colors.black87
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FloatingActionButton.small(
+                    heroTag: "btnPusat",
+                    backgroundColor: Colors.white,
+                    onPressed: () async {
+                      if (_currentLat != null && _currentLng != null) {
+                        _mapController.move(LatLng(_currentLat!, _currentLng!), 18.0);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Mencari sinyal GPS presisi tinggi..."))
+                        );
+                        try {
+                          Position pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                          setState(() {
+                            _currentLat = pos.latitude;
+                            _currentLng = pos.longitude;
+                          });
+                          _mapController.move(LatLng(pos.latitude, pos.longitude), 18.0);
+                        } catch (e) {
+                          debugPrint("Gagal mendapat lokasi: $e");
+                        }
+                      }
+                    },
+                    child: const Icon(Icons.my_location, color: Colors.blue),
+                  ),
+                ],
+              ),
+            ),
+
+            // 4. NAVIGASI BAWAH ELEGAN (BISA HIDE/SHOW)
+            _buildBottomNavigationBar(),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildWrapList(Widget listWidget) {
     return ListView(padding: const EdgeInsets.all(10), children: [listWidget]);
   }
 
-  Widget _buildFormUtama() {
-    return Column(
-      children: [
-        TextField(
-          controller: _namaSaluranCtrl,
-          decoration: const InputDecoration(
-            labelText: "Nama Saluran",
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (value) {
-            setState(() {
-              // Jika teks dihapus sampai kosong oleh surveyor
-              if (value.isEmpty) {
-                _isEditingMode = false;
-                _editingSaluranId = null;
-              }
-            });
-          },
-        ),
-        const SizedBox(height: 10),
-        // Dropdown 1: Tingkat Jaringan
-        DropdownButtonFormField<String>(
-          // Logika pengaman: Jika nilai di variabel tidak ada di list, paksa ke index 0
-          value: tingkatPilihan.contains(_selectedTingkatJaringan)
-              ? _selectedTingkatJaringan
-              : tingkatPilihan[0],
-          items: tingkatPilihan
-              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-              .toList(),
-          onChanged: (v) => setState(() => _selectedTingkatJaringan = v!),
-          decoration: const InputDecoration(
-            labelText: "Tingkat Jaringan",
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 10),
-        // Dropdown 2: KODE ASET (Ganti duplikat tadi dengan ini Pak)
-        DropdownButtonFormField<String>(
-          value:
-              _jaringanChoices.any(
-                (element) => element['code'] == _selectedJaringan,
-              )
-              ? _selectedJaringan
-              : _jaringanChoices[0]['code'],
-          items: _jaringanChoices
-              .map(
-                (choice) => DropdownMenuItem(
-                  value: choice['code'],
-                  child: Text(choice['name']!),
-                ),
-              )
-              .toList(),
-          onChanged: (v) => setState(() => _selectedJaringan = v!),
-          decoration: const InputDecoration(
-            labelText: "Jenis Saluran (Kode Aset)",
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          value: _selectedKewenangan,
-          items: [
-            'Pusat',
-            'Provinsi',
-            'Kabupaten',
-          ].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-          onChanged: (v) => setState(() => _selectedKewenangan = v!),
-          decoration: const InputDecoration(
-            labelText: "Kewenangan",
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ],
-    );
-  }
-
+  
   Widget _buildKoneksiHulu() {
     return _buildFieldset(
       title: "Koneksi Hulu",
@@ -1831,7 +1790,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       title: "Kondisi Saluran Saat Ini",
       icon: Icons.engineering,
       child: SizedBox(
-        height: 350, // Beri tinggi tetap agar Tab bisa di-scroll
+        height: 400, // Tingginya kita naikkan sedikit dari 350 ke 400 agar lega
         child: DefaultTabController(
           length: 2,
           child: Column(
@@ -1842,10 +1801,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 indicatorSize: TabBarIndicatorSize.label,
                 tabs: [
                   Tab(text: "Umum", icon: Icon(Icons.info_outline, size: 20)),
-                  Tab(
-                    text: "Detail Segmen",
-                    icon: Icon(Icons.analytics_outlined, size: 20),
-                  ),
+                  Tab(text: "Detail Segmen", icon: Icon(Icons.analytics_outlined, size: 20)),
                 ],
               ),
               const SizedBox(height: 15),
@@ -1853,31 +1809,28 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                 child: TabBarView(
                   children: [
                     // --- TAB 1: KETERANGAN UMUM ---
-                    Column(
-                      children: [
-                        TextField(
-                          controller: _keteranganUmumCtrl,
-                          maxLines: 5,
-                          decoration: const InputDecoration(
-                            labelText: "Keterangan Umum Saluran",
-                            hintText:
-                                "Contoh: Secara keseluruhan saluran banyak endapan...",
-                            border: OutlineInputBorder(),
+                    SingleChildScrollView( // Tambahkan ini agar aman saat ngetik panjang
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _keteranganUmumCtrl,
+                            maxLines: 5,
+                            decoration: const InputDecoration(
+                              labelText: "Keterangan Umum Saluran",
+                              hintText: "Contoh: Secara keseluruhan saluran banyak endapan...",
+                              border: OutlineInputBorder(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          "* Keterangan ini berlaku untuk seluruh panjang saluran.",
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey,
+                          const SizedBox(height: 10),
+                          const Text(
+                            "* Keterangan ini berlaku untuk seluruh panjang saluran.",
+                            style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
-                    // --- TAB 2: DETAIL SEGMEN (Logic lama Bapak pindah ke sini) ---
+                    // --- TAB 2: DETAIL SEGMEN ---
                     SingleChildScrollView(
                       child: Column(
                         children: [
@@ -1889,20 +1842,23 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
+                          // Bungkus tombol dengan Expanded agar otomatis menyesuaikan layar
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              _buildKondisiBtn("BAIK", Colors.green),
-                              _buildKondisiBtn("RR", Colors.orange),
-                              _buildKondisiBtn("RB", Colors.red),
-                              _buildKondisiBtn("BAP", Colors.grey),
+                              Expanded(child: _buildKondisiBtn("BAIK", Colors.green)),
+                              const SizedBox(width: 4),
+                              Expanded(child: _buildKondisiBtn("RR", Colors.orange)),
+                              const SizedBox(width: 4),
+                              Expanded(child: _buildKondisiBtn("RB", Colors.red)),
+                              const SizedBox(width: 4),
+                              Expanded(child: _buildKondisiBtn("BAP", Colors.grey)),
                             ],
                           ),
                           const SizedBox(height: 15),
                           TextField(
                             controller: _keteranganKondisiCtrl,
-                            onChanged: (v) =>
-                                _keteranganSaluran[_selectedKondisi] = v,
+                            onChanged: (v) => _keteranganSaluran[_selectedKondisi] = v,
                             decoration: InputDecoration(
                               labelText: "Keterangan $_selectedKondisi",
                               border: const OutlineInputBorder(),
@@ -1914,33 +1870,26 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
                             child: OutlinedButton.icon(
                               onPressed: _isTracking ? _ambilFotoSaluran : null,
                               icon: const Icon(Icons.camera_alt),
-                              label: const Text("AMBIL FOTO SEGMEN"),
+                              label: const FittedBox(child: Text("AMBIL FOTO SEGMEN")),
                             ),
                           ),
                           const SizedBox(height: 10),
                           _buildFotoPreview(),
                           const SizedBox(height: 15),
-                          if (_isTracking) // Tombol hanya muncul kalau lagi survey
+                          if (_isTracking)
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  // Logika Submit Manual Segmen
                                   if (_currentPath.isNotEmpty) {
-                                    _gantiKondisi(
-                                      _selectedKondisi,
-                                    ); // Simpan data saat ini dan lanjut di kondisi yang sama
+                                    _gantiKondisi(_selectedKondisi);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "Detail segmen berhasil disimpan!",
-                                        ),
-                                      ),
+                                      const SnackBar(content: Text("Detail segmen berhasil disimpan!")),
                                     );
                                   }
                                 },
                                 icon: const Icon(Icons.save_as),
-                                label: const Text("SIMPAN DETAIL SEGMEN"),
+                                label: const FittedBox(child: Text("SIMPAN DETAIL SEGMEN")),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blueAccent,
                                   foregroundColor: Colors.white,
@@ -2351,7 +2300,6 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
   Future<void> _bersihkanDataKotor() async {
     final db = await DatabaseService().database;
-    // Hapus semua data bangunan yang nama salurannya sama dengan yang sedang dibuka
     await db.delete(
       'surveys',
       where: 'nama_saluran = ? AND di_id = ?',
@@ -2371,8 +2319,27 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
     setState(() => _isSaving = true);
 
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext c) {
+        return const PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Expanded(child: Text("Menyimpan data survey...\nMohon tunggu.")),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
     try {
-      // 1. Masukkan segmen terakhir yang sedang berjalan
+
       if (_currentPath.isNotEmpty) {
         _segmenKondisi.add({
           'kondisi': _selectedKondisi,
@@ -2386,7 +2353,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         });
       }
 
-      // 2. Gabungkan history koordinat
+
       List<LatLng> totalPathFull = [];
       for (var poly in _pathHistory) {
         totalPathFull.addAll(poly.points);
@@ -2400,7 +2367,7 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
 
       int diId = widget.dataDI['id'];
 
-      // 3. Siapkan Map Data
+
       Map<String, dynamic> dataSimpan = {
         'di_id': diId,
         'nama_di': widget.dataDI['nama_di'],
@@ -2428,27 +2395,36 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         'foto_bap': jsonEncode(_fotoSaluran['BAP'] ?? []),
         'path_koordinat': pathSimpan,
         'status_sync': 0,
-      };
 
-      // 4. Simpan ke SQLite Lokal
+      };
+        debugPrint("📸 === CEK DATA FOTO SEBELUM MASUK SQLITE ===");
+        debugPrint("FOTO BAIK: ${dataSimpan['foto_baik']}");
+        debugPrint("FOTO RR  : ${dataSimpan['foto_rr']}");
+        debugPrint("FOTO RB  : ${dataSimpan['foto_rb']}");
+        debugPrint("FOTO BAP : ${dataSimpan['foto_bap']}");
+        debugPrint("DATA SEGMEN: ${dataSimpan['path_kondisi']}");
+        debugPrint("===============================================");
+
+
       if (_isEditingMode && _editingSaluranId != null) {
         await DatabaseService().updateSaluran(_editingSaluranId!, dataSimpan);
       } else {
         await DatabaseService().insertSaluran(dataSimpan);
       }
 
-      // 5. Kirim ke Server API
-      bool success = await ApiService().syncSaluran(dataSimpan);
-
-      if (success) {
-        await DatabaseService().updateStatusSurvey(diId, 1);
-      }
+      // bool success = await ApiService().syncSaluran(dataSimpan);
+      // if (success) {
+      //   await DatabaseService().updateStatusSurvey(diId, 1);
+      // }
 
       if (!mounted) return;
 
       // 6. HAPUS DRAFT & RESET UI
       await DatabaseService().deleteDraft(diId);
       _stopTracking();
+
+      Navigator.pop(context); 
+      Navigator.pop(context);
 
       setState(() {
         _segmenKondisi = [];
@@ -2464,13 +2440,10 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
         _isSaving = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? "✅ Data Sinkron ke Server"
-                : "⚠️ Tersimpan di HP (Offline)",
-          ),
+     ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("✅ Data tersimpan di HP. Silakan Sync di halaman utama."),
+          backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
@@ -2807,8 +2780,8 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
           diId: oldData['di_id'] ?? 0,
           namaDI: oldData['nama_di'] ?? "",
           namaSaluran: oldData['nama_saluran'] ?? "",
-          lat: lat, // Nilai ini sekarang dijamin double
-          lng: lng, // Nilai ini sekarang dijamin double
+          lat: lat, 
+          lng: lng,
           jarakAntarRuas: jarak,
           bangunanChoices: _bangunanChoices,
           existingData: oldData,
@@ -3094,6 +3067,65 @@ class _SurveySaluranPageState extends State<SurveySaluranPage> {
       _isPaused ? _positionStream?.resume() : _positionStream?.pause();
       _isPaused = !_isPaused;
     });
+  }
+
+  void _prosesSimpanSegmenBaru(Map<String, dynamic> dataForm) {
+    if (_currentPath.isEmpty) return;
+
+    // 1. Simpan data segmen yang barusan dilewati ke list utama
+    _segmenKondisi.add({
+      'kondisi': _selectedKondisi, // Kondisi SEBELUM diubah
+      'panjang': _jarakSegmenIni,
+      'keterangan': dataForm['keterangan'],
+      'lebar': dataForm['lebar'],
+      'tinggi': dataForm['tinggi'],
+      'titik_awal': "${_currentPath.first.latitude},${_currentPath.first.longitude}",
+      'titik_akhir': "${_currentPath.last.latitude},${_currentPath.last.longitude}",
+      'fotos': List.from(dataForm['fotos']),
+    });
+
+    // 2. Tandai marker di peta untuk titik perubahan segmen
+    LatLng titikMarker = _currentPath.last;
+    _markersKondisi.add(
+      Marker(
+        point: titikMarker,
+        width: 50, height: 50,
+        child: GestureDetector(
+          onTap: () => _mapController.move(titikMarker, 18.0),
+          child: Icon(Icons.location_on, color: _getWarnaKondisi(_selectedKondisi), size: 40),
+        ),
+      ),
+    );
+
+    // 3. Bekukan garis (Polyline) segmen sebelumnya ke history
+    if (_currentPath.length > 1) {
+      _pathHistory.add(
+        Polyline(
+          points: List.from(_currentPath),
+          color: _getWarnaKondisi(_selectedKondisi),
+          strokeWidth: 5,
+        ),
+      );
+    }
+
+    // 4. Reset & Mulai Segmen Baru
+    setState(() {
+      LatLng lastPoint = _currentPath.last; // Bawa titik terakhir sebagai titik awal segmen baru
+      
+      if (_selectedKondisi == 'BAP') {
+        _panjangBap += _jarakSegmenIni;
+      }
+
+      _currentPath = [lastPoint]; 
+      _jarakSegmenIni = 0; 
+      _selectedKondisi = dataForm['kondisi_baru']; // Update kondisi untuk warna garis selanjutnya
+    });
+
+    _autoSaveDraft(); // Simpan draft ke SQLite
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Segmen disimpan. Lanjut dengan Kondisi: $_selectedKondisi"))
+    );
   }
 
   void _stopTracking() {
@@ -3815,8 +3847,6 @@ class _FormBangunanDetailState extends State<FormBangunanDetail> {
     } else {
       await db.insertSurvey(data);
     }
-
-    // 4. Kembali ke halaman utama dengan membawa data
     Navigator.pop(context, data);
   }
 

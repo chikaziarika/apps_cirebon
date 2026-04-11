@@ -122,7 +122,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 L.geoJSON(geojsonData, {
-                    // ... opsi styling Anda ...
                 }).addTo(yourMapVariable);
             })
             .catch(error => {

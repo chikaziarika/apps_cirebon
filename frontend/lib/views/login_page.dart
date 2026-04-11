@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import 'dashboard_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -28,40 +28,28 @@ class _LoginPageState extends State<LoginPage> {
     if (result['status'] == 200) {
       final prefs = await SharedPreferences.getInstance();
 
-      // Ambil data body
+
       final data = result['body'];
-
-      // DEBUG: Cek di terminal VS Code, pastikan isinya ada 'token' dan 'is_admin'
       print("HASIL DARI DJANGO: $data");
-
-      // 1. Ambil Token (Di Django Bapak namanya 'token', bukan 'access')
       await prefs.setString('access_token', data['token'] ?? "");
-
-      // 2. Ambil is_admin (Di Django Bapak sudah benar 'is_admin')
       await prefs.setBool('is_admin', data['is_admin'] ?? false);
-
-      // 3. Ambil Username
       await prefs.setString('username', data['username'] ?? username);
 
       if (!mounted) return;
 
-      // Navigasi ke Dashboard (Cukup satu kali saja Navigator-nya Pak)
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DashboardPage()),
       );
     } else {
-      // TAMBAHKAN INI PAK:
       if (!mounted) return;
-      setState(() => _loading = false); // Matikan loading jika gagal
+      setState(() => _loading = false); 
 
       String pesan = result['body']?['error'] ?? "Gagal Masuk Sistem";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(pesan), backgroundColor: Colors.red),
       );
     }
-
-    // Pastikan ini tetap ada di paling bawah
     if (mounted) setState(() => _loading = false);
   }
 

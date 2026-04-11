@@ -241,40 +241,54 @@ class DetailSegmenInline(admin.StackedInline):
 
     @admin.display(description='Preview Foto (Web & Mobile)')
     def display_foto_segmen(self, obj):
+        import json
         html_output = '<div style="display: flex; gap: 10px; flex-wrap: wrap;">'
+        found_any = False
         
-        # 2. Masukkan kelima field foto ke dalam list untuk di-looping
+        # 1. Render Foto dari Web Admin (Bingkai Hijau)
         foto_fields = [
-            obj.foto_admin, 
-            getattr(obj, 'foto_admin_2', None), 
-            getattr(obj, 'foto_admin_3', None),
-            getattr(obj, 'foto_admin_4', None),
-            getattr(obj, 'foto_admin_5', None)
+            obj.foto_admin, getattr(obj, 'foto_admin_2', None), 
+            getattr(obj, 'foto_admin_3', None), getattr(obj, 'foto_admin_4', None), getattr(obj, 'foto_admin_5', None)
         ]
         
-        # Render Foto dari Web Admin (Bingkai Hijau)
-        for foto in foto_fields:
-            if foto:
-                html_output += f'<img src="{foto.url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #28a745; border-radius: 4px;"/>'
+        for idx, foto in enumerate(foto_fields, start=1):
+            if foto and hasattr(foto, 'url'):
+                found_any = True
+                html_output += f'''
+                    <div style="text-align:center;">
+                        <img src="{foto.url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #28a745; border-radius: 4px;"/>
+                        <br/><small style="color:#28a745; font-weight:bold;">Admin {idx}</small>
+                    </div>
+                '''
             
-        # Render Foto dari Mobile App/JSON (Bingkai Biru)
+        # 2. Render Foto dari Mobile App/JSON (Bingkai Biru)
         if obj.foto and obj.foto not in ["[]", "null", ""]:
             try:
                 # Bersihkan string JSON
                 paths = obj.foto.replace('[', '').replace(']', '').replace('"', '').replace("'", "").split(',')
+                
+                mob_idx = 1
                 for path in paths:
                     path = path.strip()
-                    if path:
+                    # MENCEGAH ERROR 404: Abaikan path memori lokal HP Android (/data/user/0/...)
+                    if path and not path.startswith('/data/user/'):
+                        found_any = True
                         full_url = f"/media/{path}" if not path.startswith(('http', '/media/')) else path
-                        html_output += f'<img src="{full_url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #007bff; border-radius: 4px;"/>'
-            except:
+                        html_output += f'''
+                            <div style="text-align:center;">
+                                <img src="{full_url}" style="height: 80px; width: 120px; object-fit: cover; border: 2px solid #007bff; border-radius: 4px;"/>
+                                <br/><small style="color:#007bff; font-weight:bold;">Mobile {mob_idx}</small>
+                            </div>
+                        '''
+                        mob_idx += 1
+            except Exception as e:
                 pass
                 
         html_output += '</div>'
         
-        # Jika benar-benar kosong
-        if html_output == '<div style="display: flex; gap: 10px; flex-wrap: wrap;"></div>':
-            return mark_safe('<span style="color: #999; font-size: 0.8rem;">Tidak ada foto</span>')
+        # Jika benar-benar kosong atau foto gagal diupload (masih nyangkut path /data/user/ di HP)
+        if not found_any:
+            return mark_safe('<span style="color: #ff9800; font-style: italic; font-size: 0.85rem;">Tidak ada foto (Atau foto belum di-sync dari HP surveyor)</span>')
             
         return mark_safe(html_output)
 
@@ -284,20 +298,7 @@ class DetailSegmenInline(admin.StackedInline):
         # Menambahkan CSS sederhana untuk warna teks kondisi
         return formset
 
-    @admin.display(description='Preview Foto')
-    def display_foto_segmen(self, obj):
-        if obj.foto and obj.foto not in ["[]", "null", ""]:
-            try:
-                # Bersihkan string JSON jika ada (menangani ["path/ke/foto.jpg"])
-                path = obj.foto.replace('[', '').replace(']', '').replace('"', '').replace("'", "").split(',')[0].strip()
-                
-                if path:
-                    # Cek apakah path sudah punya /media/ atau belum
-                    full_url = f"/media/{path}" if not path.startswith(('http', '/media/')) else path
-                    return mark_safe(f'<img src="{full_url}" style="height: 60px; width: 90px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;"/>')
-            except:
-                pass
-        return mark_safe('<span style="color: #999; font-size: 0.8rem;">Tidak ada foto</span>')
+    
 
 from leaflet.admin import LeafletGeoAdminMixin
 from leaflet.forms.widgets import LeafletWidget
@@ -345,17 +346,25 @@ class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
                 ('panjang_baik', 'panjang_rr', 'panjang_rb', 'panjang_bap'),
             )
         }),
+        # ('Dokumentasi Survey (Dari Mobile)', {  # <--- TAMBAHKAN BLOK INI
+        #     'fields': (
+        #         'display_foto_baik', 
+        #         'display_foto_rr', 
+        #         'display_foto_rb', 
+        #         'display_foto_bap'
+        #     )
+        # }),
     )
 
-    # PENTING: Semua yang berawal 'display_' harus masuk ke sini
-    # readonly_fields = (
-    #     'display_foto_baik', 
-    #     'display_foto_rr', 
-    #     'display_foto_rb', 
-    #     'display_foto_bap',
-    #     # 'panjang_saluran',
-    # )
-    readonly_fields = ()
+    
+    readonly_fields = (
+        'display_foto_baik', 
+        'display_foto_rr', 
+        'display_foto_rb', 
+        'display_foto_bap',
+        # 'panjang_saluran',
+    )
+    # readonly_fields = ()
 
     
     # 4. Fungsi untuk memformat angka panjang agar ada satuan 'm'
@@ -392,24 +401,30 @@ class SaluranAdmin(LeafletGeoAdminMixin, admin.ModelAdmin):
             return mark_safe('<div style="color:gray;">Tidak ada foto</div>')
         
         try:
-            # 1. Bersihkan karakter aneh jika data dikirim sebagai string mentah
             clean_data = json_photo_data.replace("'", '"')
-            
-            # 2. Parse JSON
             import json
             photo_list = json.loads(clean_data) if clean_data.startswith('[') else [clean_data]
             
             html_output = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
+            found = False
+            
             for path in photo_list:
-                if not path: continue
-                # Tambahkan /media/ jika path tidak diawali /media/
+                # Bypass file lokal HP agar tidak 404
+                if not path or path.startswith('/data/user/'): 
+                    continue
+                    
+                found = True
                 url = f"/media/{path}" if not path.startswith(('/media/', 'http')) else path
-                html_output += format_html(
-                    '<div style="text-align:center;">'
-                    '<img src="{}" style="height: 100px; border-radius: 8px; border: 1px solid #ccc;"/>'
-                    '</div>', url
-                )
+                html_output += f'''
+                    <div style="text-align:center;">
+                        <img src="{url}" style="height: 100px; border-radius: 8px; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"/>
+                    </div>
+                '''
             html_output += '</div>'
+            
+            if not found:
+                return mark_safe('<div style="color:#ff9800; font-size:12px; font-style:italic;">Foto ada di memori HP, namun belum berhasil di-upload ke server.</div>')
+                
             return mark_safe(html_output)
         except Exception as e:
             return mark_safe(f'<span style="color:red;">Format Error: {e}</span>')
@@ -725,9 +740,9 @@ class DetailLayananInline(nested_admin.NestedStackedInline):
         ('Data Percabangan & Kelanjutan', {
             'fields': (
                 # KEMBALI KE 3 KOTAK PER BARIS
-                ('jenis_saluran_kiri', 'saluran_manual_kiri', 'nomenklatur_kiri', 'luas_kiri'),
-                ('jenis_saluran_tengah', 'saluran_manual_tengah', 'nomenklatur_tengah', 'luas_tengah'),
-                ('jenis_saluran_kanan', 'saluran_manual_kanan', 'nomenklatur_kanan', 'luas_kanan'),
+                ('jenis_saluran_kiri', 'nomenklatur_kiri', 'luas_kiri'),
+                ('jenis_saluran_tengah', 'nomenklatur_tengah', 'luas_tengah'),
+                ('jenis_saluran_kanan', 'nomenklatur_kanan', 'luas_kanan'),
                 ('jumlah_cabang_sekunder', 'jumlah_cabang_tersier'),
                 'is_saluran_berlanjut',
             ),

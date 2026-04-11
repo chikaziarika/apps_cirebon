@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import DaerahIrigasi, LayerPendukung, Saluran, Bangunan, DetailLayananBangunan, AsetSaluran, JenisPintu, DetailSegmenSaluran
+from .models import DaerahIrigasi, LayerPendukung, Saluran, Bangunan, DetailLayananBangunan, AsetSaluran, JenisPintu, DetailSegmenSaluran, UnitPintuBangunan
 from .serializers import DaerahIrigasiSerializer, DetailLayananBangunanSerializer, SaluranSerializer
 from django.db.models import Sum, F
 from django.http import HttpResponse, JsonResponse
@@ -18,11 +18,11 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .models import TitikIrigasi
 from django.db import models
-import json, io
+import json, io, uuid
 from django.contrib.gis.geos import Point
 from django.shortcuts import redirect
 from django.db.models import Q
-
+from django.db import transaction
 
 def dashboard(request):
 
@@ -410,12 +410,10 @@ def api_login(request):
     
     user = authenticate(username=username, password=password)
     if user:
-        # --- KUNCINYA DI SINI UNTUK WEB ---
         login(request, user) # Ini membuat session di browser
         
         token, _ = Token.objects.get_or_create(user=user)
         
-        # Jika request datang dari Form Web (bukan Flutter)
         if request.accepted_renderer.format == 'html' or 'text/html' in request.headers.get('Accept', ''):
             from django.shortcuts import redirect
             return redirect('dashboard')
@@ -1057,67 +1055,181 @@ def api_sync_bangunan(request):
     try:
         data = request.data
         files = request.FILES 
-        
 
-        induk_bangunan, _ = Bangunan.objects.get_or_create(
+        def safe_float(val):
+            try:
+                if val and str(val).lower() not in ["null", "", "none"]:
+                    return float(val)
+            except:
+                pass
+            return 0.0
+
+        lat_val = safe_float(data.get('lat'))
+        lng_val = safe_float(data.get('lng'))
+        lat_final = lat_val if lat_val != 0 else None
+        lng_final = lng_val if lng_val != 0 else None
+
+
+        jarak_hulu = safe_float(data.get('jarak_dari_hulu'))
+        
+        nama_hulu = str(data.get('hulu_nomenklatur', '')).strip()
+        obj_hulu = None
+        
+        # Pastikan tidak kosong atau null
+        if nama_hulu and nama_hulu not in ["", "0", "null", "None"]:
+            # Cari tanpa mempedulikan huruf besar/kecil (iexact)
+            obj_hulu = Bangunan.objects.filter(
+                nomenklatur_ruas__iexact=nama_hulu,
+                daerah_irigasi_id=data.get('di_id')
+            ).first()
+            
+            # Jaga-jaga jika Admin menyimpannya di field nama_bangunan, bukan nomenklatur
+            if not obj_hulu:
+                obj_hulu = Bangunan.objects.filter(
+                    nama_bangunan__iexact=nama_hulu,
+                    daerah_irigasi_id=data.get('di_id')
+                ).first()
+
+        induk_bangunan, created_induk = Bangunan.objects.get_or_create(
             nomenklatur_ruas=data.get('nama_bangunan'),
             daerah_irigasi_id=data.get('di_id'),
-            defaults={'saluran': Saluran.objects.filter(nama_saluran=data.get('nama_saluran')).first()}
+            defaults={
+                'saluran': Saluran.objects.filter(nama_saluran=data.get('nama_saluran')).first(),
+                'terhubung_ke': obj_hulu, # <--- TEMPELKAN RELASI DI SINI
+                'panjang_saluran_antar_ruas': safe_float(data.get('jarak_dari_hulu'))
+            }
         )
 
+        # Jika bangunan sudah ada sebelumnya (Update)
+        if not created_induk:
+            if obj_hulu: 
+                induk_bangunan.terhubung_ke = obj_hulu
+            induk_bangunan.panjang_saluran_antar_ruas = safe_float(data.get('jarak_dari_hulu'))
+            induk_bangunan.save() # Simpan perubahannya ke database
 
-        teks_keterangan = data.get('keterangan_tambahan') or data.get('keterangan') or ''
+       
 
-        lat_raw = data.get('lat')
-        lng_raw = data.get('lng')
-        
-        # Jika data koordinat tidak ada atau string "null", set Python None (Database NULL)
-        lat_val = float(lat_raw) if lat_raw and str(lat_raw).lower() != "null" else None
-        lng_val = float(lng_raw) if lng_raw and str(lng_raw).lower() != "null" else None
+        # =======================================================
+        # 3. CARI / BUAT JENIS PINTU
+        # =======================================================
+        nama_jenis_pintu = data.get('jenis_pintu', '').strip()
+        jp_obj = None
+        if nama_jenis_pintu and nama_jenis_pintu != "null":
+            jp_obj, _ = JenisPintu.objects.get_or_create(nama=nama_jenis_pintu)
 
-        detail, created = DetailLayananBangunan.objects.update_or_create(
+        is_berlanjut_str = str(data.get('is_saluran_berlanjut', 'true')).lower()
+        is_berlanjut = is_berlanjut_str in ['true', '1', 't', 'y', 'yes']
+
+        # =======================================================
+        # 4. SIMPAN KE TABEL DETAIL (DetailLayananBangunan)
+        # =======================================================
+        detail, created_detail = DetailLayananBangunan.objects.update_or_create(
             bangunan=induk_bangunan,
             defaults={
                 'kondisi_bangunan': data.get('kondisi_bangunan', 'BAIK').upper(), 
                 'surveyor': data.get('surveyor', 'admin'),
-                'latitude': lat_val,
-                'longitude': lng_val,
+                'latitude': lat_final,
+                'longitude': lng_final,
                 'kecamatan': data.get('kecamatan', ''),
                 'desa': data.get('desa', ''),
                 'kode_aset': data.get('kode_aset'),
                 'nama_aset_manual': data.get('nama_bangunan'),
-                'keterangan': teks_keterangan, # "Rusak Sekali" masuk ke sini
-                'lebar_saluran': float(data.get('lebar_saluran', 0)),
-                'tinggi_saluran': float(data.get('tinggi_saluran', 0)),
-                'pintu_baik': int(data.get('pintu_baik', 0)),
-                'pintu_rusak_ringan': int(data.get('pintu_rr', 0)),
-                'pintu_rusak_berat': int(data.get('pintu_rb', 0)),
+                'keterangan': data.get('keterangan', ''), 
+                
+                'lebar_saluran': safe_float(data.get('lebar_saluran')),
+                'tinggi_saluran': safe_float(data.get('tinggi_saluran')),
+                
+                'pintu_baik': int(safe_float(data.get('pintu_baik'))),
+                'pintu_rusak_ringan': int(safe_float(data.get('pintu_rr'))),
+                'pintu_rusak_berat': int(safe_float(data.get('pintu_rb'))),
+                'jenis_pintu': jp_obj, 
+                
+                # --- DATA CABANG ---
+                'jenis_saluran_kiri': data.get('jenis_saluran_kiri', 'TERSIER'),
+                'saluran_manual_kiri': data.get('saluran_manual_kiri', ''),
+                'nomenklatur_kiri': data.get('nomenklatur_kiri', ''),
+                'luas_kiri': safe_float(data.get('luas_kiri')),
+
+                'jenis_saluran_tengah': data.get('jenis_saluran_tengah', 'INDUK'),
+                'saluran_manual_tengah': data.get('saluran_manual_tengah', ''),
+                'nomenklatur_tengah': data.get('nomenklatur_tengah', ''),
+                'luas_tengah': safe_float(data.get('luas_tengah')),
+
+                'jenis_saluran_kanan': data.get('jenis_saluran_kanan', 'TERSIER'),
+                'saluran_manual_kanan': data.get('saluran_manual_kanan', ''),
+                'nomenklatur_kanan': data.get('nomenklatur_kanan', ''),
+                'luas_kanan': safe_float(data.get('luas_kanan')),
+
+                'jumlah_cabang_sekunder': int(safe_float(data.get('jumlah_cabang_sekunder'))), 
+                'jumlah_cabang_tersier': int(safe_float(data.get('jumlah_cabang_tersier'))),
+                'is_saluran_berlanjut': is_berlanjut,
             }
         )
 
-        # 4. Logika Foto Agar Tidak Saling Timpa/Hilang
+        # --- SIMPAN FOTO BANGUNAN UTAMA ---
         kondisi = data.get('kondisi_bangunan', 'BAIK').upper()
         prefix = "baik"
         if "RR" in kondisi or "RINGAN" in kondisi: prefix = "rr"
         elif "RB" in kondisi or "BERAT" in kondisi: prefix = "rb"
 
-        # Simpan foto hanya jika ada file baru yang diunggah
         for i in range(1, 6):
             key_foto = f'foto{i}' 
             if key_foto in files:
-                # Contoh field: foto_baik1, foto_rr1, foto_rb1
                 setattr(detail, f'foto_{prefix}{i}', files[key_foto]) 
         
         detail.save()
         
-        # PENTING: Update statistik di Daerah Irigasi setelah save
+        # =======================================================
+        # 5. AUTO-GENERATE PINTU BESERTA FOTONYA
+        # =======================================================
+        # Bersihkan pintu lama agar tidak dobel
+        UnitPintuBangunan.objects.filter(detail_layanan=detail).delete()
+
+        p_baik = int(safe_float(data.get('pintu_baik')))
+        p_rr = int(safe_float(data.get('pintu_rr')))
+        p_rb = int(safe_float(data.get('pintu_rb')))
+        
+        l_pintu = safe_float(data.get('lebar_pintu'))
+        t_pintu = safe_float(data.get('tinggi_pintu'))
+        
+        nomor = 1
+
+        def buat_pintu(kondisi_pintu):
+            nonlocal nomor
+            # Tarik foto pintu dari files (maksimal 3 foto pintu dari mobile)
+            idx_foto = nomor if nomor <= 3 else 3 
+            foto_file = files.get(f'foto_pintu{idx_foto}') 
+            
+            UnitPintuBangunan.objects.create(
+                detail_layanan=detail, 
+                nomor_pintu=nomor, 
+                nama_pintu=f"{induk_bangunan.nomenklatur_ruas} - Pintu {nomor}", 
+                kondisi=kondisi_pintu, 
+                lebar_pintu=l_pintu, 
+                tinggi_pintu=t_pintu,
+                jenis_pintu=jp_obj,
+                foto_pintu=foto_file 
+            )
+            nomor += 1
+        
+        # Buat baris pintunya
+        for _ in range(p_baik): buat_pintu('BAIK')
+        for _ in range(p_rr): buat_pintu('RR')
+        for _ in range(p_rb): buat_pintu('RB')
+            
+        detail.pintu_total_unit = p_baik + p_rr + p_rb
+        detail.save()
+
+        # Update Rekap D.I.
         if detail.bangunan.daerah_irigasi:
             detail.bangunan.daerah_irigasi.update_totals()
 
-        return Response({"status": "success", "message": "Data & Keterangan Terupdate", "id": detail.id}, status=201)
+        return Response({"status": "success", "message": "Data Bangunan & Pintu Terupdate", "id": detail.id}, status=201)
 
     except Exception as e:
-        print(f"❌ ERROR SYNC: {str(e)}")
+        import traceback
+        print(f"❌ ERROR SYNC BANGUNAN: {str(e)}")
+        traceback.print_exc() # Print error lengkap ke terminal
         return Response({"status": "error", "message": str(e)}, status=400)
 
 @csrf_exempt
@@ -1129,7 +1241,7 @@ def api_sync_saluran(request):
         data = request.data
         files = request.FILES
         
-        # 1. VALIDASI FOREIGN KEY (PENTING!)
+        # 1. VALIDASI FOREIGN KEY
         di_id = data.get('di_id')
         di_obj = DaerahIrigasi.objects.filter(id=di_id).first()
         
@@ -1143,96 +1255,128 @@ def api_sync_saluran(request):
         kondisi_fix = data.get('kondisi') or data.get('kondisi_aset') or 'BAIK'
         jaringan_fix = data.get('tingkat_jaringan') or data.get('kode_aset_saluran') or 'S01'
         
-        # 2. PERBAIKAN FUNGSI SIMPAN FOTO (Tanpa JSON Dumps agar gambar tidak sobek)
+        # 2. FUNGSI PENYIMPAN FOTO
         def simpan_foto_survey(file_obj):
             if file_obj:
-                import uuid
-                # Tambahkan unique ID agar nama file tidak bentrok
                 ext = file_obj.name.split('.')[-1]
                 filename = f"survey_{uuid.uuid4().hex[:8]}.{ext}"
                 path = default_storage.save(f'survey/{filename}', ContentFile(file_obj.read()))
-                # SIMPAN PATH MURNI: 'survey/namafile.jpg'
                 return path 
             return ""
 
-        path_foto_baik = simpan_foto_survey(files.get('foto_baik'))
-        path_foto_rr = simpan_foto_survey(files.get('foto_rr'))
-        path_foto_rb = simpan_foto_survey(files.get('foto_rb'))
-        path_foto_bap = simpan_foto_survey(files.get('foto_bap'))
+        # ========================================================
+        # 🛡️ JURUS 1 BUNDLE (ATOMIC TRANSACTION)
+        # Jika di dalam blok 'with' ini ada 1 saja yang error, 
+        # maka semua data yang terlanjur di-insert akan dibatalkan!
+        # ========================================================
+        with transaction.atomic():
+            
+            path_foto_baik = simpan_foto_survey(files.get('foto_baik'))
+            path_foto_rr = simpan_foto_survey(files.get('foto_rr'))
+            path_foto_rb = simpan_foto_survey(files.get('foto_rb'))
+            path_foto_bap = simpan_foto_survey(files.get('foto_bap'))
 
-        # 3. KALKULASI PANJANG SEGMEN
-        baik, rr, rb, bap = 0, 0, 0, 0
-        path_kondisi_raw = data.get('path_kondisi')
-        if path_kondisi_raw:
-            segmen_list = json.loads(path_kondisi_raw)
-            for segmen in segmen_list:
-                kondisi = str(segmen.get('kondisi', '')).upper()
-                panjang = float(segmen.get('panjang', 0))
-                if 'BAIK' in kondisi: baik += panjang
-                elif 'RR' in kondisi or 'RINGAN' in kondisi: rr += panjang
-                elif 'RB' in kondisi or 'BERAT' in kondisi: rb += panjang
-                elif 'BAP' in kondisi or 'PASANGAN' in kondisi: bap += panjang
+            json_foto_baik = json.dumps([path_foto_baik]) if path_foto_baik else data.get('foto_baik', '[]')
+            json_foto_rr = json.dumps([path_foto_rr]) if path_foto_rr else data.get('foto_rr', '[]')
+            json_foto_rb = json.dumps([path_foto_rb]) if path_foto_rb else data.get('foto_rb', '[]')
+            json_foto_bap = json.dumps([path_foto_bap]) if path_foto_bap else data.get('foto_bap', '[]')
 
-        # 4. SIMPAN OBJECT SALURAN
-        saluran_obj = Saluran.objects.create(
-            daerah_irigasi=di_obj, # Gunakan object yang sudah divalidasi
-            surveyor=nama_surveyor,
-            nama_saluran=data.get('nama_saluran'),
-            panjang_saluran=round(float(data.get('panjang_saluran', 0)), 2),
-            panjang_baik=round(baik, 2),
-            panjang_rr=round(rr, 2),
-            panjang_rb=round(rb, 2),
-            panjang_bap=round(bap, 2),
-            path_kondisi=path_kondisi_raw,
-            # path_koordinat=data.get('path_koordinat'),
-            path_koordinat=validated_geom,
-            # Simpan path murni ke database
-            foto_baik=path_foto_baik,
-            foto_rr=path_foto_rr,
-            foto_rb=path_foto_rb,
-            foto_bap=path_foto_bap,
-            kondisi_aset=kondisi_fix, 
-            kode_aset_saluran=jaringan_fix,
-            is_approved=False
-        )
+            # 3. KALKULASI PANJANG SEGMEN
+            baik, rr, rb, bap = 0, 0, 0, 0
+            path_kondisi_raw = data.get('path_kondisi')
+            
+            if path_kondisi_raw:
+                segmen_list = json.loads(path_kondisi_raw)
+                for segmen in segmen_list:
+                    kondisi = str(segmen.get('kondisi', '')).upper()
+                    panjang = float(segmen.get('panjang', 0))
+                    if 'BAIK' in kondisi: baik += panjang
+                    elif 'RR' in kondisi or 'RINGAN' in kondisi: rr += panjang
+                    elif 'RB' in kondisi or 'BERAT' in kondisi: rb += panjang
+                    elif 'BAP' in kondisi or 'PASANGAN' in kondisi: bap += panjang
 
-        path_raw = data.get('path_koordinat')
-        validated_geom = None
+            # 4. PARSING GEOMETRI (Dari Flutter)
+            path_raw = data.get('path_koordinat', '')
+            validated_geom = None
 
-        if path_raw:
-            try:
-                # Validasi apakah string ini bisa dibaca sebagai Geometri
-                from django.contrib.gis.geos import GEOSGeometry
-                validated_geom = GEOSGeometry(path_raw)
-            except Exception as e:
-                # Jika GPS rusak/data korup, set None agar Admin bisa isi manual
-                print(f"⚠️ Geometri Saluran Korup dari Mobile: {e}")
-                validated_geom = None
+            if path_raw:
+                try:
+                    points = []
+                    for pt in path_raw.split('|'):
+                        coords = pt.split(',')
+                        if len(coords) >= 2:
+                            lat = float(coords[0].strip())
+                            lng = float(coords[1].strip())
+                            points.append((lng, lat)) 
+                    
+                    if len(points) >= 2:
+                        single_line = LineString(points)
+                        validated_geom = MultiLineString(single_line) 
+                except Exception as e:
+                    print(f"⚠️ Geometri Saluran Korup dari Mobile: {e}")
+                    validated_geom = None
 
-        # 5. SIMPAN KE TABEL DETAIL SEGMEN (Logic Many-to-One)
-        if path_kondisi_raw:
-            for s in json.loads(path_kondisi_raw):
-                DetailSegmenSaluran.objects.create(
-                    saluran=saluran_obj,
-                    kondisi=s.get('kondisi'),
-                    panjang=s.get('panjang', 0),
-                    keterangan=s.get('keterangan'),
-                    titik_awal=s.get('titik_awal'),
-                    titik_akhir=s.get('titik_akhir'),
-                    # Foto segmen juga pastikan tidak sobek
-                    foto=json.dumps(s.get('fotos', [])) 
-                )
-        
-        # Update Statistik di DI
-        di_obj.update_totals()
+            # 5. SIMPAN OBJECT SALURAN KE DATABASE
+            saluran_obj = Saluran.objects.create(
+                daerah_irigasi=di_obj,
+                surveyor=nama_surveyor,
+                nama_saluran=data.get('nama_saluran'),
+                panjang_saluran=round(float(data.get('panjang_saluran', 0)), 2),
+                panjang_baik=round(baik, 2),
+                panjang_rr=round(rr, 2),
+                panjang_rb=round(rb, 2),
+                panjang_bap=round(bap, 2),
+                path_kondisi=path_kondisi_raw,
+                path_koordinat=validated_geom, 
+                kondisi_aset=kondisi_fix, 
+                kode_aset_saluran=jaringan_fix,
+                is_approved=False,
+                foto_baik=json_foto_baik,
+                foto_rr=json_foto_rr,
+                foto_rb=json_foto_rb,
+                foto_bap=json_foto_bap
+            )
 
+            # 6. SIMPAN KE TABEL DETAIL SEGMEN (BESERTA FOTO SEGMEN)
+            if path_kondisi_raw:
+                segmen_list = json.loads(path_kondisi_raw)
+                for idx, s in enumerate(segmen_list):
+                    segmen_obj = DetailSegmenSaluran.objects.create(
+                        saluran=saluran_obj,
+                        kondisi=s.get('kondisi'),
+                        panjang=s.get('panjang', 0),
+                        keterangan=s.get('keterangan'),
+                        titik_awal=s.get('titik_awal'),
+                        titik_akhir=s.get('titik_akhir'),
+                        foto=json.dumps(s.get('fotos', [])) 
+                    )
+                    
+                    # Tangkap file foto fisik dari request.FILES
+                    for f_idx in range(5):
+                        file_key = f'segmen_{idx}_foto_{f_idx}'
+                        if file_key in files:
+                            if f_idx == 0: segmen_obj.foto_admin = files[file_key]
+                            elif f_idx == 1: segmen_obj.foto_admin_2 = files[file_key]
+                            elif f_idx == 2: segmen_obj.foto_admin_3 = files[file_key]
+                            elif f_idx == 3: segmen_obj.foto_admin_4 = files[file_key]
+                            elif f_idx == 4: segmen_obj.foto_admin_5 = files[file_key]
+                    
+                    segmen_obj.save()
+            
+            di_obj.update_totals()
+
+        # ========================================================
+        # END OF ATOMIC TRANSACTION
+        # Jika sampai baris ini berarti aman sentosa 100%
+        # ========================================================
         return Response({"status": "success", "id": saluran_obj.id}, status=201)
         
     except Exception as e:
-        print(f"❌ Error Detail: {e}")
+        # Jika gagal, tampilkan error aslinya ke terminal Django
+        import traceback
+        traceback.print_exc()
         return Response({"status": "error", "message": str(e)}, status=400)
-    
-# --- VIEW UNTUK PETA KESELURUHAN ---
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
