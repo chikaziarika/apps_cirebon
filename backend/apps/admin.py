@@ -1006,7 +1006,7 @@ admin.site.unregister(TokenProxy)
 admin.site.unregister(Group)
 
 from django.contrib.auth.models import User
-admin.site._registry[User].model._meta.verbose_name_plural = "1. MANAJEMEN SUPERUSER"
+admin.site._registry[User].model._meta.verbose_name_plural = "1. MANAJEMEN AKUN USER"
 
 from django.apps import apps
 
@@ -1029,4 +1029,4 @@ except LookupError:
 from allauth.account.models import EmailAddress
 
 EmailAddress._meta.verbose_name = "Email User"
-EmailAddress._meta.verbose_name_plural = "1. MANAJEMEN USER"
+EmailAddress._meta.verbose_name_plural = "1. MANAJEMEN SUPERUSER"
