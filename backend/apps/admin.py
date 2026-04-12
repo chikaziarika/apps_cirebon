@@ -194,7 +194,7 @@ class DetailSegmenInline(admin.StackedInline):
     
 
     verbose_name = "Detail Ruas Per Segmen Kondisi"
-    verbose_name_plural = "DAFTAR SEGMEN KONDISI (Banyak Segmen)"
+    verbose_name_plural = "DAFTAR SEGMEN KONDISI"
 
     @admin.display(description='Preview Foto (Web & Mobile)')
     def display_foto_segmen(self, obj):
@@ -997,9 +997,36 @@ class LaporanIksiSaluranAdmin(admin.ModelAdmin):
     list_display = ('saluran', 'tahun', 'total_nilai_iksi')
     search_fields = ('saluran__nama_saluran',)
     inlines = [RuasIksiInline]
+
 admin.site.unregister(Site)
 admin.site.unregister(SocialAccount)
 admin.site.unregister(SocialApp)
 admin.site.unregister(SocialToken)
 admin.site.unregister(TokenProxy)
 admin.site.unregister(Group)
+
+from django.contrib.auth.models import User
+admin.site._registry[User].model._meta.verbose_name_plural = "1. MANAJEMEN SUPERUSER"
+
+from django.apps import apps
+
+
+try:
+    apps.get_app_config('account').verbose_name = "3. MANAJEMEN AKUN & EMAIL"
+except LookupError:
+
+    try:
+        apps.get_app_config('allauth').verbose_name = "3. MANAJEMEN AKUN & EMAIL"
+    except LookupError:
+        pass
+
+
+try:
+    apps.get_app_config('auth').verbose_name = "2. PENGATURAN HAK AKSES"
+except LookupError:
+    pass
+
+from allauth.account.models import EmailAddress
+
+EmailAddress._meta.verbose_name = "Email User"
+EmailAddress._meta.verbose_name_plural = "1. MANAJEMEN USER"

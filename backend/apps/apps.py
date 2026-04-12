@@ -16,7 +16,8 @@ def otomatis_update_domain(sender, **kwargs):
 
 class AppsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps' # Pastikan ini sesuai dengan nama folder aplikasi Anda
+    name = 'apps' 
+    verbose_name = '1. DATA OPERASIONAL SIRIGASI'
 
     def ready(self):
         post_migrate.connect(otomatis_update_domain, sender=self)
