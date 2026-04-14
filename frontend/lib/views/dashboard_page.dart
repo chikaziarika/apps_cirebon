@@ -188,7 +188,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "Sistem Indeks Irigasi DPUTR Kab. Cirebon",
+                      "Sistem Informasi Kinerja Irigasi \n\n DPUTR Kabupaten Cirebon",
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,

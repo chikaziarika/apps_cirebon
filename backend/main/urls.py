@@ -22,7 +22,7 @@ from django.contrib.auth import views as auth_views
 from apps import views as apps_views
 
 admin.site.site_header = "Admin Panel SIRIGASI"      
-admin.site.site_title = "Admin Panel DINAS PEKERJAAN UMUM DAN PENATAAN RUANG KABUPATEN CIREBON"           
+admin.site.site_title = "Admin Panel DINAS PEKERJAAN UMUM DAN TATA RUANG KABUPATEN CIREBON"           
 admin.site.index_title = "Selamat Datang di Sistem Informasi Kinerja Jaringan Irigasi"
 
 urlpatterns = [
