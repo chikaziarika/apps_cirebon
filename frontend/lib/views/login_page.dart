@@ -89,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
       if (errorMsgFromApi.contains("password")) {
         customPesan = "Kredensial tidak cocok. Silakan periksa kembali kata sandi Anda.";
       } else if (errorMsgFromApi.contains("user") || errorMsgFromApi.contains("not found")) {
-        customPesan = "Akun tidak ditemukan. Silakan hubungi Administrator DPUTR Kabupaten Cirebon.";
+        customPesan = "Akun tidak ditemukan. Silakan hubungi Administrator";
       } else {
         customPesan = "Akses ditolak. Pastikan username dan kata sandi sudah benar.";
       }
@@ -122,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
         title: const Text("Lupa Kata Sandi", style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text(
           "Untuk alasan keamanan, pengaturan ulang kata sandi harus melalui verifikasi pusat.\n\n"
-          "Silakan hubungi Administrator IT DPUTR Kabupaten Cirebon untuk bantuan.",
+          "Silakan hubungi Administrator IT untuk bantuan.",
         ),
         actions: [
           TextButton(
@@ -168,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                           ],
                         ),
                         child: Image.asset(
-                          'assets/images/logo_sirigasi.png',
+                          'assets/images/iconSIRIGASI2.png',
                           fit: BoxFit.contain, // INI KUNCINYA: Biar logo proporsional & gak nge-zoom
                         ),
                       ),
@@ -184,7 +184,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        "Sistem Informasi Kinerja Jaringan Irigasi\nDPUTR Kabupaten Cirebon",
+                        "Sistem Informasi Kinerja Jaringan Irigasi",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
@@ -405,7 +405,7 @@ class _LoginPageState extends State<LoginPage> {
                       );
                     },
                     child: const Text(
-                      '© 2026 DPUTR Kabupaten Cirebon\nKetuk untuk baca Kebijakan Privasi',
+                      '© 2026 IT DABEST \nKetuk untuk baca Kebijakan Privasi',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),

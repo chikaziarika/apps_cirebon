@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              "assets/images/logo_sirigasi.png", // Pakai logo lokal yang sudah ada
+              "assets/images/iconSIRIGASI2.png", 
               height: 150,
             ),
             const SizedBox(height: 30),
@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const Text(
-              "DPUTR KABUPATEN CIREBON",
+              "IT DABEST",
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

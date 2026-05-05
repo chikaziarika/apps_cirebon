@@ -188,7 +188,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "Sistem Informasi Kinerja Irigasi \n\n DPUTR Kabupaten Cirebon",
+                      "Sistem Informasi Kinerja Irigasi",
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -209,7 +209,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   border: Border.all(color: Colors.white24, width: 2),
                   image: const DecorationImage(
                     image: AssetImage(
-                      'assets/images/logo_sirigasi.png',
+                      'assets/images/iconSIRIGASI2.png',
                     ), 
                     fit: BoxFit.cover,
                   ),
