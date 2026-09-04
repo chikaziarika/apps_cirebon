@@ -95,7 +95,9 @@ function initDetailMap(inputData) {
     detailMap.createPane('paneBangunanDetail'); detailMap.getPane('paneBangunanDetail').style.zIndex = 650;
 
     const baseMaps = {
-        "Peta Dasar (Terang)": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
+        "Peta Dasar (Terang)": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 16
+        }),
         "Peta Satelit": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
     };
     baseMaps["Peta Dasar (Terang)"].addTo(detailMap);
